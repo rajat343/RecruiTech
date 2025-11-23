@@ -34,14 +34,5 @@ const jobSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Text index for search
-jobSchema.index({ title: "text", description: "text", skills: "text" });
-jobSchema.index({ recruiter_id: 1, is_deleted: 1, is_active: 1 });
-
-jobSchema.methods.softDelete = async function () {
-  this.is_deleted = true;
-  await this.save();
-};
-
 const Job = mongoose.model("Job", jobSchema);
 module.exports = Job;
