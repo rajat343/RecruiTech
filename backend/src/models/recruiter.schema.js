@@ -24,7 +24,7 @@ const recruiterSchema = new mongoose.Schema(
 		verification_status: {
 			type: String,
 			enum: ["pending", "verified", "rejected"],
-			default: "pending",
+			default: "verified", // TODO: Discuss
 		},
 		is_deleted: { type: Boolean, default: false },
 	},

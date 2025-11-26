@@ -11,12 +11,14 @@ const { createContext } = require("./middleware/auth");
 const userTypeDefs = require("./features/user/typeDefs");
 const candidateTypeDefs = require("./features/candidate/typeDefs");
 const recruiterTypeDefs = require("./features/recruiter/typeDefs");
+const companyTypeDefs = require("./features/company/typeDefs");
 const jobTypeDefs = require("./features/job/typeDefs");
 
 // Import resolvers
 const userResolvers = require("./features/user/resolvers");
 const candidateResolvers = require("./features/candidate/resolvers");
 const recruiterResolvers = require("./features/recruiter/resolvers");
+const companyResolvers = require("./features/company/resolvers");
 const jobResolvers = require("./features/job/resolvers");
 
 // Initialize Express app
@@ -66,8 +68,20 @@ app.get("/health", (req, res) => {
 
 // Apollo Server setup
 const server = new ApolloServer({
-	typeDefs: [userTypeDefs, candidateTypeDefs, recruiterTypeDefs, jobTypeDefs],
-	resolvers: [userResolvers, candidateResolvers, recruiterResolvers, jobResolvers],
+	typeDefs: [
+		userTypeDefs,
+		candidateTypeDefs,
+		recruiterTypeDefs,
+		companyTypeDefs,
+		jobTypeDefs,
+	],
+	resolvers: [
+		userResolvers,
+		candidateResolvers,
+		recruiterResolvers,
+		companyResolvers,
+		jobResolvers,
+	],
 	context: createContext,
 	formatError: (error) => {
 		console.error("GraphQL Error:", error);

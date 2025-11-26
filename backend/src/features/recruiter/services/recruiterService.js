@@ -1,9 +1,10 @@
 const Recruiter = require("../../../models/recruiter.schema");
+const Company = require("../../../models/company.schema");
 const User = require("../../../models/user.schema");
 
 /**
  * Create a new recruiter profile
- * @param {Object} recruiterData - Recruiter data
+ * @param {Object} recruiterData - Recruiter data (includes company_id)
  * @param {String} userId - User ID
  * @returns {Object} Created recruiter
  */
@@ -35,11 +36,23 @@ const createRecruiter = async (recruiterData, userId) => {
 		throw new Error("Email already registered");
 	}
 
+	// Validate company exists and belongs to this user (or user is admin)
+	const company = await Company.findById(recruiterData.company_id);
+	if (!company || company.is_deleted) {
+		throw new Error("Company not found");
+	}
+	if (company.created_by.toString() !== userId && !user.is_admin) {
+		throw new Error("Unauthorized to use this company");
+	}
+
 	const recruiter = new Recruiter({
-		...recruiterData,
+		first_name: recruiterData.first_name,
+		last_name: recruiterData.last_name,
 		email: recruiterData.email.toLowerCase(),
+		phone_number: recruiterData.contact_number,
+		company_id: recruiterData.company_id,
 		user_id: userId,
-		verification_status: "pending",
+		verification_status: "verified", // TODO: Discuss
 		is_deleted: false,
 	});
 
