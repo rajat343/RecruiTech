@@ -151,7 +151,7 @@ const jobResolvers = {
 
     // Elasticsearch management (admin only)
     reindexAllJobs: async (parent, args, context) => {
-      //requireAdmin(context);
+      requireAdmin(context);
       const success = await jobSearchService.reindexAllJobs();
       return success;
     },

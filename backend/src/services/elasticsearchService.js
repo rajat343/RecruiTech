@@ -67,8 +67,7 @@ class ElasticsearchService {
                 type: 'text', 
                 analyzer: 'job_text_analyzer',
                 fields: {
-                  keyword: { type: 'keyword' },
-                  suggest: { type: 'search_as_you_type' }
+                  keyword: { type: 'keyword' }
                 }
               },
               description: { 
@@ -82,8 +81,7 @@ class ElasticsearchService {
                 type: 'text', 
                 analyzer: 'standard',
                 fields: {
-                  keyword: { type: 'keyword' },
-                  suggest: { type: 'search_as_you_type' }
+                  keyword: { type: 'keyword' }
                 }
               },
               salary_min: { type: 'integer' },
@@ -100,8 +98,7 @@ class ElasticsearchService {
               company_name: { 
                 type: 'text',
                 fields: {
-                  keyword: { type: 'keyword' },
-                  suggest: { type: 'search_as_you_type' }
+                  keyword: { type: 'keyword' }
                 }
               },
               recruiter_id: { type: 'keyword' },
@@ -421,27 +418,88 @@ class ElasticsearchService {
   // Get job suggestions for autocomplete
   async getJobSuggestions(query, field = 'title') {
     try {
+      // Use simple search with prefix matching for suggestions
+      const searchField = field === 'title' ? 'title' : 
+                         field === 'location' ? 'location' :
+                         field === 'skills' ? 'skills' :
+                         field === 'company_name' ? 'company_name' : 'title';
+
       const response = await this.client.search({
         index: this.jobsIndex,
         body: {
-          size: 0,
-          suggest: {
-            job_suggest: {
-              prefix: query,
-              completion: {
-                field: `${field}.suggest`,
-                size: 10
-              }
+          size: 10,
+          query: {
+            bool: {
+              must: [
+                { term: { is_active: true } },
+                { term: { is_deleted: false } }
+              ],
+              should: [
+                {
+                  prefix: {
+                    [`${searchField}.keyword`]: {
+                      value: query.toLowerCase(),
+                      boost: 3
+                    }
+                  }
+                },
+                {
+                  wildcard: {
+                    [`${searchField}.keyword`]: {
+                      value: `*${query.toLowerCase()}*`,
+                      boost: 2
+                    }
+                  }
+                },
+                {
+                  match: {
+                    [searchField]: {
+                      query: query,
+                      fuzziness: 'AUTO',
+                      boost: 1
+                    }
+                  }
+                }
+              ],
+              minimum_should_match: 1
             }
-          }
+          },
+          _source: [searchField],
+          collapse: {
+            field: `${searchField}.keyword`
+          },
+          sort: [
+            { _score: { order: 'desc' } }
+          ]
         }
       });
 
       const responseBody = this.getResponseBody(response);
-      return responseBody.suggest.job_suggest[0].options.map(option => ({
-        text: option.text,
-        score: option._score
+      
+      // Extract unique suggestions
+      const suggestions = new Set();
+      responseBody.hits.hits.forEach(hit => {
+        const value = hit._source[searchField];
+        if (value) {
+          if (Array.isArray(value)) {
+            // For skills array
+            value.forEach(skill => {
+              if (skill.toLowerCase().includes(query.toLowerCase())) {
+                suggestions.add(skill);
+              }
+            });
+          } else {
+            // For single values like title, location, company_name
+            suggestions.add(value);
+          }
+        }
+      });
+
+      return Array.from(suggestions).slice(0, 10).map(text => ({
+        text,
+        score: 1.0 // Simple scoring for suggestions
       }));
+      
     } catch (error) {
       console.error('❌ Job suggestions failed:', error.message);
       return [];
