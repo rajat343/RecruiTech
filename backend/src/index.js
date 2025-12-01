@@ -6,6 +6,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const connectDatabase = require("./config/database");
 const { createContext } = require("./middleware/auth");
+const elasticsearchService = require("./services/elasticsearchService");
 
 // Import type definitions
 const userTypeDefs = require("./features/user/typeDefs");
@@ -107,6 +108,13 @@ const startServer = async () => {
 		// Connect to database
 		await connectDatabase();
 
+		// Initialize Elasticsearch
+		try {
+			await elasticsearchService.init();
+		} catch (error) {
+			console.warn("⚠️  Elasticsearch initialization failed, search features will be disabled:", error.message);
+		}
+
 		// Start Apollo Server
 		await server.start();
 		server.applyMiddleware({ app, path: "/graphql", cors: corsOptions });
@@ -121,6 +129,7 @@ const startServer = async () => {
 			console.log(
 				`🎮 GraphQL Playground: http://localhost:${PORT}${server.graphqlPath}`
 			);
+			console.log("💡 Job search with Elasticsearch is ready!");
 		});
 	} catch (error) {
 		console.error("❌ Failed to start server:", error);
