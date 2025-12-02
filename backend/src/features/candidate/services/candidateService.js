@@ -1,5 +1,7 @@
 const Candidate = require("../../../models/candidate.schema");
 const User = require("../../../models/user.schema");
+const Education = require("../../../models/education.schema");
+const Experience = require("../../../models/experience.schema");
 
 /**
  * Create a new candidate profile
@@ -155,6 +157,27 @@ const deleteCandidate = async (candidateId, userId) => {
 	return true;
 };
 
+const getFullCandidateProfile = async (candidateId) => {
+	const candidate = await Candidate.findById(candidateId);
+	if (!candidate || candidate.is_deleted) throw new Error("Candidate not found");
+
+	const education = await Education.find({
+		candidate_id: candidateId,
+		is_deleted: false,
+	});
+
+	const experience = await Experience.find({
+		candidate_id: candidateId,
+		is_deleted: false,
+	});
+
+	return {
+		...candidate.toObject(),
+		education,
+		experience,
+	};
+};
+
 module.exports = {
 	createCandidate,
 	getCandidateById,
@@ -162,4 +185,5 @@ module.exports = {
 	getCandidates,
 	updateCandidate,
 	deleteCandidate,
+	getFullCandidateProfile,
 };
