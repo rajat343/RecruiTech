@@ -251,3 +251,235 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+/* Modal Styles */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.75);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	padding: 1rem;
+	backdrop-filter: blur(4px);
+}
+
+.modal-content {
+	background: var(--bg-card);
+	border: 1px solid var(--border);
+	border-radius: 1rem;
+	max-width: 600px;
+	width: 100%;
+	max-height: 90vh;
+	overflow: auto;
+	box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content.modal-large {
+	max-width: 700px;
+}
+
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1.5rem 2rem;
+	border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin: 0;
+}
+
+.modal-close {
+	background: transparent;
+	border: none;
+	color: var(--text-secondary);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.5rem;
+	border-radius: 0.5rem;
+	transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+	background: var(--bg-hover);
+	color: var(--text-primary);
+}
+
+.modal-body {
+	padding: 2rem;
+}
+
+.profile-options {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1rem;
+}
+
+.profile-option-card {
+	background: var(--bg-dark);
+	border: 2px solid var(--border);
+	border-radius: 0.75rem;
+	padding: 1.5rem;
+	text-align: left;
+	cursor: pointer;
+	transition: all var(--transition-normal);
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.profile-option-card:hover {
+	border-color: var(--accent-cyan);
+	background: var(--primary-light);
+	transform: translateY(-2px);
+}
+
+.profile-option-icon {
+	color: var(--accent-cyan);
+	margin-bottom: 0.5rem;
+}
+
+.profile-option-card h3 {
+	font-size: 1.125rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin: 0;
+}
+
+.profile-option-card p {
+	font-size: 0.875rem;
+	color: var(--text-secondary);
+	margin: 0;
+	line-height: 1.5;
+}
+
+.modal-body .alert {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	border-radius: 0.5rem;
+	margin-bottom: 1.5rem;
+	font-size: 0.875rem;
+}
+
+.modal-body .alert-error {
+	background: rgba(239, 68, 68, 0.1);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	color: #ef4444;
+}
+
+.modal-body .form-group {
+	margin-bottom: 1.5rem;
+}
+
+.modal-body .form-group:last-of-type {
+	margin-bottom: 2rem;
+}
+
+.modal-body .form-group label {
+	display: block;
+	margin-bottom: 0.5rem;
+	color: var(--text-primary);
+	font-weight: 500;
+	font-size: 0.875rem;
+}
+
+.modal-actions {
+	display: flex;
+	gap: 1rem;
+	justify-content: flex-end;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border);
+}
+
+.modal-actions .btn {
+	min-width: 120px;
+}
+
+.form-section {
+	margin-bottom: 2rem;
+	padding-bottom: 2rem;
+	border-bottom: 1px solid var(--border);
+}
+
+.form-section:last-of-type {
+	border-bottom: none;
+	margin-bottom: 1rem;
+}
+
+.form-section-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 1rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin-bottom: 1.25rem;
+}
+
+.form-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+}
+
+.modal-body .form-group label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.modal-body textarea.input-field {
+	resize: vertical;
+	min-height: 100px;
+	font-family: inherit;
+	line-height: 1.5;
+}
+
+.modal-body select.input-field {
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 1rem center;
+	padding-right: 2.5rem;
+	cursor: pointer;
+}
+
+@media (max-width: 768px) {
+	.form-row {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 640px) {
+	.modal-content {
+		max-width: 100%;
+		margin: 0;
+		border-radius: 0;
+	}
+
+	.modal-header,
+	.modal-body {
+		padding: 1.5rem;
+	}
+
+	.modal-actions {
+		flex-direction: column-reverse;
+	}
+
+	.modal-actions .btn {
+		width: 100%;
+	}
+}

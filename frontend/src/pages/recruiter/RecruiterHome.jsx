@@ -9,6 +9,9 @@ import {
 	PlusCircle,
 	TrendingUp,
 	Clock,
+	X,
+	User,
+	Building2,
 } from "lucide-react";
 import "../candidate/CandidateHome.css";
 
@@ -18,6 +21,20 @@ const RecruiterHome = () => {
 	const [recruiter, setRecruiter] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [showProfileModal, setShowProfileModal] = useState(false);
+	const [hasCreatedCompanies, setHasCreatedCompanies] = useState(false);
+	const [editView, setEditView] = useState(null); // null, 'personal', 'company'
+	const [personalForm, setPersonalForm] = useState({
+		first_name: "",
+		last_name: "",
+		phone_number: "",
+	});
+	const [companyForm, setCompanyForm] = useState({
+		name: "",
+		domain: "",
+	});
+	const [saving, setSaving] = useState(false);
+	const [editError, setEditError] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -32,20 +49,31 @@ const RecruiterHome = () => {
 				const data = await graphqlRequest(
 					`
 					query GetRecruiterProfile {
-					myRecruiterProfile {
-						id
-						first_name
-						last_name
-						email
-						phone_number
-						company_id
-					}
+						myRecruiterProfile {
+							id
+							first_name
+							last_name
+							email
+							phone_number
+							company_id
+						}
+						companies(limit: 10) {
+							id
+							created_by
+						}
 					}
 					`,
 					{},
 					token
 				);
 				setRecruiter(data.myRecruiterProfile);
+
+				// Check if recruiter has created any companies
+				const createdCompanies = data.companies.filter(
+					(company) => company.created_by === user.id
+				);
+				setHasCreatedCompanies(createdCompanies.length > 0);
+
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -77,6 +105,151 @@ const RecruiterHome = () => {
 		navigate("/recruiter/onboarding");
 		return null;
 	}
+
+	const handleEditProfile = () => {
+		if (hasCreatedCompanies) {
+			// Show modal with options
+			setShowProfileModal(true);
+			setEditView(null);
+		} else {
+			// Directly show personal profile edit
+			setPersonalForm({
+				first_name: recruiter.first_name,
+				last_name: recruiter.last_name,
+				phone_number: recruiter.phone_number || "",
+			});
+			setEditView("personal");
+			setShowProfileModal(true);
+		}
+	};
+
+	const handleEditPersonalProfile = () => {
+		setPersonalForm({
+			first_name: recruiter.first_name,
+			last_name: recruiter.last_name,
+			phone_number: recruiter.phone_number || "",
+		});
+		setEditView("personal");
+		setEditError(null);
+	};
+
+	const handleEditCompanyProfile = async () => {
+		try {
+			// Fetch company details
+			const data = await graphqlRequest(
+				`
+				query GetCompany($id: ID!) {
+					company(id: $id) {
+						id
+						name
+						domain
+					}
+				}
+				`,
+				{ id: recruiter.company_id },
+				token
+			);
+			setCompanyForm({
+				name: data.company.name,
+				domain: data.company.domain,
+			});
+			setEditView("company");
+			setEditError(null);
+		} catch (err) {
+			console.error("Error fetching company:", err);
+			setEditError(err.message || "Failed to load company details");
+		}
+	};
+
+	const handleSavePersonal = async (e) => {
+		e.preventDefault();
+		setEditError(null);
+		setSaving(true);
+
+		try {
+			await graphqlRequest(
+				`
+				mutation UpdateRecruiter($id: ID!, $input: RecruiterUpdateInput!) {
+					updateRecruiter(id: $id, input: $input) {
+						id
+						first_name
+						last_name
+						phone_number
+					}
+				}
+				`,
+				{
+					id: recruiter.id,
+					input: {
+						first_name: personalForm.first_name,
+						last_name: personalForm.last_name,
+						phone_number: personalForm.phone_number || null,
+					},
+				},
+				token
+			);
+
+			// Update local state
+			setRecruiter({
+				...recruiter,
+				first_name: personalForm.first_name,
+				last_name: personalForm.last_name,
+				phone_number: personalForm.phone_number,
+			});
+
+			// Close modal
+			setShowProfileModal(false);
+			setEditView(null);
+		} catch (err) {
+			console.error("Error updating profile:", err);
+			setEditError(err.message || "Failed to update profile");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handleSaveCompany = async (e) => {
+		e.preventDefault();
+		setEditError(null);
+		setSaving(true);
+
+		try {
+			await graphqlRequest(
+				`
+				mutation UpdateCompany($id: ID!, $input: CompanyUpdateInput!) {
+					updateCompany(id: $id, input: $input) {
+						id
+						name
+						domain
+					}
+				}
+				`,
+				{
+					id: recruiter.company_id,
+					input: {
+						name: companyForm.name,
+						domain: companyForm.domain,
+					},
+				},
+				token
+			);
+
+			// Close modal
+			setShowProfileModal(false);
+			setEditView(null);
+		} catch (err) {
+			console.error("Error updating company:", err);
+			setEditError(err.message || "Failed to update company");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handleCloseModal = () => {
+		setShowProfileModal(false);
+		setEditView(null);
+		setEditError(null);
+	};
 
 	return (
 		<div className="dashboard-page">
@@ -249,7 +422,10 @@ const RecruiterHome = () => {
 						<div className="profile-card card">
 							<h3>Quick Actions</h3>
 							<div className="action-buttons">
-								<button className="btn btn-outline btn-full btn-sm">
+								<button
+									className="btn btn-outline btn-full btn-sm"
+									onClick={handleEditProfile}
+								>
 									<Settings size={16} />
 									Edit Profile
 								</button>
@@ -289,6 +465,236 @@ const RecruiterHome = () => {
 						</div>
 					</div>
 				</div>
+
+				{/* Profile Edit Modal */}
+				{showProfileModal && (
+					<div className="modal-overlay" onClick={handleCloseModal}>
+						<div
+							className="modal-content"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className="modal-header">
+								<h2>
+									{editView === "personal"
+										? "Edit Personal Profile"
+										: editView === "company"
+										? "Edit Company Profile"
+										: "Edit Profile"}
+								</h2>
+								<button
+									className="modal-close"
+									onClick={handleCloseModal}
+								>
+									<X size={24} />
+								</button>
+							</div>
+							<div className="modal-body">
+								{editError && (
+									<div className="alert alert-error">
+										{editError}
+									</div>
+								)}
+
+								{/* Choose Option View */}
+								{!editView && (
+									<>
+										<p
+											style={{
+												marginBottom: "1.5rem",
+												color: "var(--text-secondary)",
+											}}
+										>
+											Choose what you'd like to edit:
+										</p>
+										<div className="profile-options">
+											<button
+												className="profile-option-card"
+												onClick={
+													handleEditPersonalProfile
+												}
+											>
+												<div className="profile-option-icon">
+													<User size={32} />
+												</div>
+												<h3>Personal Profile</h3>
+												<p>
+													Edit your name, phone
+													number, and other personal
+													details
+												</p>
+											</button>
+											<button
+												className="profile-option-card"
+												onClick={
+													handleEditCompanyProfile
+												}
+											>
+												<div className="profile-option-icon">
+													<Building2 size={32} />
+												</div>
+												<h3>Company Profile</h3>
+												<p>
+													Edit company name and domain
+												</p>
+											</button>
+										</div>
+									</>
+								)}
+
+								{/* Personal Profile Edit Form */}
+								{editView === "personal" && (
+									<form onSubmit={handleSavePersonal}>
+										<div className="form-group">
+											<label htmlFor="first_name">
+												First Name *
+											</label>
+											<input
+												type="text"
+												id="first_name"
+												className="input-field"
+												value={personalForm.first_name}
+												onChange={(e) =>
+													setPersonalForm({
+														...personalForm,
+														first_name:
+															e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="last_name">
+												Last Name *
+											</label>
+											<input
+												type="text"
+												id="last_name"
+												className="input-field"
+												value={personalForm.last_name}
+												onChange={(e) =>
+													setPersonalForm({
+														...personalForm,
+														last_name:
+															e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="phone_number">
+												Phone Number
+											</label>
+											<input
+												type="tel"
+												id="phone_number"
+												className="input-field"
+												placeholder="+1 (555) 123-4567"
+												value={
+													personalForm.phone_number
+												}
+												onChange={(e) =>
+													setPersonalForm({
+														...personalForm,
+														phone_number:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+
+										<div className="modal-actions">
+											<button
+												type="button"
+												className="btn btn-outline"
+												onClick={handleCloseModal}
+												disabled={saving}
+											>
+												Cancel
+											</button>
+											<button
+												type="submit"
+												className="btn btn-primary"
+												disabled={saving}
+											>
+												{saving
+													? "Saving..."
+													: "Save Changes"}
+											</button>
+										</div>
+									</form>
+								)}
+
+								{/* Company Profile Edit Form */}
+								{editView === "company" && (
+									<form onSubmit={handleSaveCompany}>
+										<div className="form-group">
+											<label htmlFor="company_name">
+												Company Name *
+											</label>
+											<input
+												type="text"
+												id="company_name"
+												className="input-field"
+												value={companyForm.name}
+												onChange={(e) =>
+													setCompanyForm({
+														...companyForm,
+														name: e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="company_domain">
+												Domain *
+											</label>
+											<input
+												type="text"
+												id="company_domain"
+												className="input-field"
+												placeholder="example.com"
+												value={companyForm.domain}
+												onChange={(e) =>
+													setCompanyForm({
+														...companyForm,
+														domain: e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+
+										<div className="modal-actions">
+											<button
+												type="button"
+												className="btn btn-outline"
+												onClick={handleCloseModal}
+												disabled={saving}
+											>
+												Cancel
+											</button>
+											<button
+												type="submit"
+												className="btn btn-primary"
+												disabled={saving}
+											>
+												{saving
+													? "Saving..."
+													: "Save Changes"}
+											</button>
+										</div>
+									</form>
+								)}
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

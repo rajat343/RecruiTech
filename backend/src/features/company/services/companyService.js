@@ -31,11 +31,8 @@ const createCompany = async (companyData, userId) => {
 };
 
 const getCompanyById = async (companyId) => {
-	const company = await Company.findOne({
-		id: companyId,
-		is_deleted: false,
-	});
-	if (!company) {
+	const company = await Company.findById(companyId);
+	if (!company || company.is_deleted) {
 		throw new Error("Company not found");
 	}
 	return company;

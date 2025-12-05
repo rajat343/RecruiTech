@@ -8,10 +8,7 @@ const connectDatabase = async () => {
 				"MONGODB_URL is not defined in environment variables"
 			);
 		}
-		const options = {
-			useNewUrlParser: true,
-			useUnifiedTopology: true,
-		};
+		const options = {};
 		await mongoose.connect(mongoUri, options);
 		console.log("MongoDB connected successfully");
 		console.log(`Database: ${mongoose.connection.name}`);

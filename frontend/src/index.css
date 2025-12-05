@@ -11,7 +11,7 @@
 	--primary-light: #253d5a;
 	--accent-cyan: #22d3ee;
 	--accent-cyan-dark: #06b6d4;
-	--accent-cyan-light: #67e8f9;
+	--accent-cyan-light: #2dd4ef;
 
 	/* Text Colors */
 	--text-primary: #ffffff;
@@ -159,6 +159,7 @@ select {
 
 .btn-primary:hover {
 	background: #2dd4ef;
+	color: var(--primary-dark);
 	transform: translateY(-2px);
 	box-shadow: 0 10px 20px rgba(34, 211, 238, 0.4);
 }

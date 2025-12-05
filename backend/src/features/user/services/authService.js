@@ -12,7 +12,15 @@ const register = async (email, password, role) => {
 	// Check if user already exists
 	const existingUser = await User.findOne({ email, is_deleted: false });
 	if (existingUser) {
-		throw new Error("User with this email already exists");
+		// Check if they signed up with OAuth
+		if (existingUser.google_id && !existingUser.password) {
+			throw new Error(
+				"This email is already registered with Google. Please use Google Sign In."
+			);
+		}
+		throw new Error(
+			"An account with this email already exists. Please log in."
+		);
 	}
 
 	// Create new user
@@ -60,18 +68,22 @@ const login = async (email, password) => {
 	// Find user
 	const user = await User.findOne({ email, is_deleted: false });
 	if (!user) {
-		throw new Error("Invalid email or password");
+		throw new Error(
+			"No account found with this email. Please sign up first."
+		);
 	}
 
-	// Check if user has password
+	// Check if user has password (OAuth-only accounts)
 	if (!user.password) {
-		throw new Error("Invalid email or password");
+		throw new Error(
+			"This account was created with Google. Please use Google Sign In."
+		);
 	}
 
 	// Verify password
 	const isPasswordValid = await user.comparePassword(password);
 	if (!isPasswordValid) {
-		throw new Error("Invalid email or password");
+		throw new Error("Incorrect password. Please try again.");
 	}
 
 	// Generate token
@@ -109,7 +121,15 @@ const registerWithOAuth = async (googleId, email, role, profilePic = null) => {
 	// Check if user already exists
 	const existingUser = await User.findOne({ email, is_deleted: false });
 	if (existingUser) {
-		throw new Error("User with this email already exists");
+		// If they have a password, they registered with email/password
+		if (existingUser.password) {
+			throw new Error(
+				"This email is already registered. Please log in with your password."
+			);
+		}
+		throw new Error(
+			"An account with this email already exists. Please log in."
+		);
 	}
 
 	// Create new user
