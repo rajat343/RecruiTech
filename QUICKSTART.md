@@ -39,11 +39,10 @@ Create `backend/.env` file:
 ```env
 PORT=4000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/recruitech
 JWT_SECRET=my-super-secret-jwt-key-for-development
-JWT_EXPIRES_IN=7d
-SESSION_SECRET=my-session-secret-for-development
 FRONTEND_URL=http://localhost:5173
+SESSION_SECRET=my-session-secret-for-development
+MONGODB_URL=mongodb://localhost:27017/recruitech
 
 # OAuth is optional - leave these empty for now
 GOOGLE_CLIENT_ID=
@@ -135,15 +134,52 @@ npm run dev
 
 To enable "Continue with Google" buttons:
 
-1. Follow the detailed guide in [OAUTH_SETUP.md](./OAUTH_SETUP.md)
-2. Get your Google Client ID and Secret from Google Cloud Console
-3. Update the OAuth fields in `backend/.env`:
-    ```env
-    GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
-    GOOGLE_CLIENT_SECRET=your-actual-client-secret
-    ```
-4. Restart the backend server
-5. The Google OAuth buttons will now work!
+### Step 1: Google Cloud Console Setup
+
+1. **Create Project**
+
+    - Go to [Google Cloud Console](https://console.cloud.google.com/)
+    - Create new project "RecruiTech"
+
+2. **Configure OAuth Consent Screen**
+
+    - Go to "APIs & Services" → "OAuth consent screen"
+    - Select "External" → Fill in:
+        - App name: RecruiTech
+        - User support email: your email
+        - Developer contact: your email
+    - Add scopes: `userinfo.email` and `userinfo.profile`
+    - Add test users (your Gmail for testing)
+
+3. **Create Credentials**
+    - Go to "APIs & Services" → "Credentials"
+    - "Create Credentials" → "OAuth client ID"
+    - Application type: "Web application"
+    - Add Authorized JavaScript origins:
+        ```
+        http://localhost:5173
+        ```
+    - Add Authorized redirect URIs:
+        ```
+        http://localhost:4000/auth/google/callback
+        ```
+    - Click "Create" and copy Client ID & Secret
+
+### Step 2: Update Backend Configuration
+
+Update `backend/.env`:
+
+```env
+GOOGLE_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-actual-client-secret
+```
+
+### Step 3: Restart & Test
+
+1. Restart the backend server
+2. You should see: `✅ Google OAuth configured`
+3. Go to http://localhost:5173
+4. Click "Continue with Google" - it works! 🎉
 
 ## Troubleshooting
 
@@ -264,7 +300,7 @@ brew services list   # Check MongoDB status (macOS)
 ## Need Help?
 
 -   📖 Full documentation: [README.md](./README.md)
--   🔐 OAuth setup: [OAUTH_SETUP.md](./OAUTH_SETUP.md)
+-   🔐 OAuth setup: See "Enable Google OAuth" section above
 -   🐛 Found a bug? Check the console logs first
 -   💬 Questions? Open an issue or discussion
 

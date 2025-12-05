@@ -9,21 +9,29 @@ RecruiTech is a modern, full-stack recruitment platform that revolutionizes hiri
 
 ## ✨ Features
 
-### For Candidates
+### For Candidates ✅ Implemented
 
 -   🚀 **Quick Signup** - Register with email/password or Google OAuth
 -   📝 **Profile Management** - Comprehensive profile with resume, GitHub, LeetCode, and portfolio links
--   🎯 **Job Matching** - AI-powered job recommendations based on your skills
--   📊 **Application Tracking** - Track all your applications in one place
--   🎥 **Video Screening** - Complete video interviews at your convenience
+-   ✏️ **Edit Profile** - Update personal info, URLs, and job search status anytime
+-   📊 **Dashboard** - View profile status and recommended jobs
+-   🎯 **Status Management** - Set job search status (actively/casually looking, not looking)
 
-### For Recruiters
+### For Recruiters ✅ Implemented
 
 -   💼 **Company Management** - Create or join verified companies
+-   ✏️ **Edit Profiles** - Update personal profile and company information
+-   📈 **Dashboard** - View active job postings and hiring metrics
+-   🔍 **Company Search** - Find and join existing companies with real-time search
+-   ⚡ **Quick Actions** - Easy access to profile editing and candidate search
+
+### Coming Soon 🚧
+
 -   📢 **Job Posting** - Post jobs with detailed requirements
 -   👥 **Candidate Search** - Find the perfect candidates with AI assistance
--   📈 **Analytics Dashboard** - Track hiring metrics and candidate engagement
--   ⚡ **Quick Actions** - Manage applications efficiently
+-   🎯 **Job Matching** - AI-powered job recommendations based on skills
+-   📊 **Application Tracking** - Track all applications in one place
+-   🎥 **Video Screening** - Complete video interviews at your convenience
 
 ### Authentication
 
@@ -39,9 +47,9 @@ RecruiTech is a modern, full-stack recruitment platform that revolutionizes hiri
 -   **React 18** - Modern UI library
 -   **Vite** - Lightning-fast build tool
 -   **React Router** - Client-side routing
--   **Apollo Client** - GraphQL client
+-   **Axios** - HTTP client for API calls
 -   **Lucide React** - Beautiful icons
--   **Axios** - HTTP client for REST APIs
+-   **Custom GraphQL utility** - GraphQL client using Axios
 
 ### Backend
 
@@ -96,15 +104,15 @@ RecruiTech/
 │   │   │   └── recruiter/
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx
-│   │   ├── config/
-│   │   │   └── apollo.js
+│   │   ├── utils/
+│   │   │   └── graphql.js
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
 │   ├── package.json
 │   └── index.html
 │
-├── OAUTH_SETUP.md
+├── QUICKSTART.md
 └── README.md
 ```
 
@@ -135,18 +143,19 @@ RecruiTech/
 3. **Configure Backend Environment**
    Create a `.env` file in the `backend` directory:
 
-    ```env
-    PORT=4000
-    NODE_ENV=development
-    MONGODB_URI=mongodb://localhost:27017/recruitech
-    JWT_SECRET=your-super-secret-jwt-key
-    JWT_EXPIRES_IN=7d
-    SESSION_SECRET=your-session-secret
-    GOOGLE_CLIENT_ID=your-google-client-id
-    GOOGLE_CLIENT_SECRET=your-google-client-secret
-    GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
-    FRONTEND_URL=http://localhost:5173
-    ```
+```env
+PORT=4000
+NODE_ENV=development
+JWT_SECRET=my-super-secret-jwt-key-for-development
+FRONTEND_URL=http://localhost:5173
+SESSION_SECRET=my-session-secret-for-development
+MONGODB_URL=mongodb://localhost:27017/recruitech
+
+# OAuth is optional - leave these empty for now
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
+```
 
 4. **Setup Frontend**
 
@@ -194,17 +203,43 @@ RecruiTech/
     - Backend API: http://localhost:4000
     - GraphQL Playground: http://localhost:4000/graphql
 
-## 🔐 OAuth Setup
+## 🔐 Google OAuth Setup
 
-To enable Google OAuth authentication, follow the detailed guide in [OAUTH_SETUP.md](./OAUTH_SETUP.md).
+To enable Google OAuth authentication:
 
-Quick steps:
+### Quick Steps:
 
-1. Create a Google Cloud Project
-2. Enable Google+ API
-3. Configure OAuth consent screen
-4. Create OAuth 2.0 credentials
-5. Add credentials to `.env` files
+1. **Create Google Cloud Project**
+
+    - Go to [Google Cloud Console](https://console.cloud.google.com/)
+    - Create a new project named "RecruiTech"
+
+2. **Configure OAuth Consent Screen**
+
+    - Go to "APIs & Services" → "OAuth consent screen"
+    - Select "External" user type
+    - Fill in app name, support email, and developer contact
+    - Add scopes: `userinfo.email` and `userinfo.profile`
+    - Add test users (your email) for development
+
+3. **Create OAuth Credentials**
+
+    - Go to "APIs & Services" → "Credentials"
+    - Create "OAuth client ID" → "Web application"
+    - Add Authorized JavaScript origins: `http://localhost:5173`
+    - Add Authorized redirect URIs: `http://localhost:4000/auth/google/callback`
+    - Copy Client ID and Client Secret
+
+4. **Update Backend `.env`**
+
+    ```env
+    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+    GOOGLE_CLIENT_SECRET=your-client-secret
+    ```
+
+5. **Restart Backend Server**
+    - OAuth will be automatically enabled
+    - Look for "✅ Google OAuth configured" in logs
 
 ## 📖 User Flows
 
@@ -287,13 +322,13 @@ The application features a modern dark theme with:
 
 ### Candidate
 
--   user_id, first_name, last_name, email, contact_number
+-   user_id, first_name, last_name, email, phone_number
 -   resume_url, github_url, leetcode_url, portfolio_url
 -   profile_summary, status (actively_looking, casually_looking, not_looking)
 
 ### Recruiter
 
--   user_id, first_name, last_name, email, contact_number
+-   user_id, first_name, last_name, email, phone_number
 -   company_id, verification_status
 
 ### Company
@@ -315,8 +350,15 @@ See the GraphQL Playground at http://localhost:4000/graphql for full schema docu
 
 ## 🛣️ Roadmap
 
+-   [x] User authentication (Email/Password + Google OAuth)
+-   [x] Role-based signup and login flows
+-   [x] Candidate profile management
+-   [x] Recruiter profile management
+-   [x] Company creation and selection
+-   [x] Profile editing for candidates and recruiters
 -   [ ] Job posting and search functionality
 -   [ ] AI-powered candidate matching
+-   [ ] Application tracking system
 -   [ ] Video screening integration
 -   [ ] Real-time messaging between candidates and recruiters
 -   [ ] Advanced analytics dashboard

@@ -73,10 +73,14 @@ Required environment variables:
 
 -   `MONGODB_URL`: MongoDB connection string
 -   `JWT_SECRET`: Secret key for JWT tokens
--   `GOOGLE_CLIENT_ID`: Google OAuth2 client ID
--   `GOOGLE_CLIENT_SECRET`: Google OAuth2 client secret
+-   `JWT_EXPIRES_IN`: JWT token expiration time
+-   `SESSION_SECRET`: Session secret for Express sessions
+-   `GOOGLE_CLIENT_ID`: Google OAuth2 client ID (optional)
+-   `GOOGLE_CLIENT_SECRET`: Google OAuth2 client secret (optional)
 -   `GOOGLE_CALLBACK_URL`: OAuth callback URL
 -   `FRONTEND_URL`: Frontend application URL
+-   `PORT`: Server port (default: 4000)
+-   `NODE_ENV`: Environment (development/production)
 
 ### 3. Start MongoDB
 
@@ -229,13 +233,13 @@ Authorization: Bearer <token>
 -   `first_name`: String (required)
 -   `last_name`: String (required)
 -   `email`: String (unique, required)
--   `contact_number`: String (optional)
+-   `phone_number`: String (optional)
 -   `github_url`: String (optional)
 -   `leetcode_url`: String (optional)
 -   `portfolio_url`: String (optional)
--   `resume_url`: String (optional)
+-   `resume_url`: String (required)
 -   `profile_summary`: String (optional)
--   `status`: Enum ['active', 'inactive'] (default: 'active')
+-   `status`: Enum ['actively_looking', 'casually_looking', 'not_looking'] (default: 'actively_looking')
 -   `is_deleted`: Boolean (default: false)
 -   `user_id`: ObjectId (reference to User)
 
@@ -244,12 +248,19 @@ Authorization: Bearer <token>
 -   `first_name`: String (required)
 -   `last_name`: String (required)
 -   `email`: String (unique, required)
--   `contact_number`: String (optional)
--   `company_name`: String (required)
--   `company_website`: String (optional)
--   `verification_status`: Enum ['pending', 'verified', 'rejected'] (default: 'pending')
+-   `phone_number`: String (optional)
+-   `company_id`: ObjectId (reference to Company, required)
+-   `verification_status`: Enum ['pending', 'verified', 'rejected'] (default: 'verified')
 -   `is_deleted`: Boolean (default: false)
 -   `user_id`: ObjectId (reference to User)
+
+### Company
+
+-   `name`: String (required)
+-   `domain`: String (unique, required)
+-   `is_verified`: Boolean (default: true)
+-   `is_deleted`: Boolean (default: false)
+-   `created_by`: ObjectId (reference to User, required)
 
 ## Security Features
 
