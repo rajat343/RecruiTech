@@ -91,7 +91,82 @@ const login = async (email, password) => {
 	};
 };
 
+/**
+ * Register a new user with OAuth (Google)
+ * @param {String} googleId - Google ID
+ * @param {String} email - User email
+ * @param {String} role - User role (recruiter or candidate)
+ * @param {String} profilePic - Profile picture URL
+ * @returns {Object} Auth payload with token and user
+ */
+const registerWithOAuth = async (googleId, email, role, profilePic = null) => {
+	// Check if user already exists
+	const existingUser = await User.findOne({ email, is_deleted: false });
+	if (existingUser) {
+		throw new Error("User with this email already exists");
+	}
+
+	// Create new user
+	const user = new User({
+		email,
+		google_id: googleId,
+		role,
+		profile_pic: profilePic,
+		is_admin: false,
+		is_deleted: false,
+	});
+
+	await user.save();
+
+	// Generate token
+	const token = generateToken({
+		userId: user._id.toString(),
+		email: user.email,
+	});
+
+	return {
+		token,
+		user: {
+			id: user._id.toString(),
+			email: user.email,
+			role: user.role,
+			is_admin: user.is_admin,
+			is_deleted: user.is_deleted,
+			createdAt: user.createdAt.toISOString(),
+			updatedAt: user.updatedAt.toISOString(),
+		},
+	};
+};
+
+/**
+ * Login user with OAuth
+ * @param {Object} user - User object from passport
+ * @returns {Object} Auth payload with token and user
+ */
+const loginWithOAuth = async (user) => {
+	// Generate token
+	const token = generateToken({
+		userId: user._id.toString(),
+		email: user.email,
+	});
+
+	return {
+		token,
+		user: {
+			id: user._id.toString(),
+			email: user.email,
+			role: user.role,
+			is_admin: user.is_admin,
+			is_deleted: user.is_deleted,
+			createdAt: user.createdAt.toISOString(),
+			updatedAt: user.updatedAt.toISOString(),
+		},
+	};
+};
+
 module.exports = {
 	register,
 	login,
+	registerWithOAuth,
+	loginWithOAuth,
 };

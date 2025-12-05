@@ -4,8 +4,10 @@ const { ApolloServer } = require("apollo-server-express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const session = require("express-session");
 const connectDatabase = require("./config/database");
 const { createContext } = require("./middleware/auth");
+const authRoutes = require("./routes/auth.routes");
 
 // Import type definitions
 const userTypeDefs = require("./features/user/typeDefs");
@@ -56,6 +58,23 @@ app.use("/graphql", limiter);
 // Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session middleware for OAuth
+app.use(
+	session({
+		secret: process.env.SESSION_SECRET || "recruitech-session-secret",
+		resave: false,
+		saveUninitialized: false,
+		cookie: {
+			secure: process.env.NODE_ENV === "production",
+			httpOnly: true,
+			maxAge: 24 * 60 * 60 * 1000, // 24 hours
+		},
+	})
+);
+
+// OAuth routes
+app.use("/auth", authRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

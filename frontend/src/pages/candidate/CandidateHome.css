@@ -1,0 +1,253 @@
+.dashboard-page {
+	min-height: 100vh;
+	padding: 3rem 0;
+	background: var(--bg-dark);
+}
+
+.dashboard-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 2.5rem;
+	gap: 2rem;
+}
+
+.dashboard-header h1 {
+	font-size: 2rem;
+	font-weight: 800;
+	color: var(--text-primary);
+	margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+	color: var(--text-secondary);
+	margin: 0;
+}
+
+.stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 1.5rem;
+	margin-bottom: 2.5rem;
+}
+
+.stat-card {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1.5rem;
+	background: var(--bg-card);
+	border: 1px solid var(--border);
+	border-radius: 0.75rem;
+	transition: all var(--transition-normal);
+}
+
+.stat-card:hover {
+	border-color: var(--accent-cyan);
+	transform: translateY(-2px);
+}
+
+.stat-icon {
+	width: 48px;
+	height: 48px;
+	border-radius: 0.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.stat-content {
+	flex: 1;
+}
+
+.stat-value {
+	font-size: 1.75rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	line-height: 1;
+	margin-bottom: 0.25rem;
+}
+
+.stat-label {
+	font-size: 0.875rem;
+	color: var(--text-secondary);
+}
+
+.dashboard-content {
+	display: grid;
+	grid-template-columns: 1fr 350px;
+	gap: 2rem;
+}
+
+.dashboard-section h2 {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin-bottom: 1.5rem;
+}
+
+.job-list {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.job-card {
+	padding: 1.5rem;
+	background: var(--bg-card);
+	border: 1px solid var(--border);
+	border-radius: 0.75rem;
+	transition: all var(--transition-normal);
+}
+
+.job-card:hover {
+	border-color: var(--accent-cyan);
+	box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+}
+
+.job-header {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.job-icon {
+	font-size: 2rem;
+}
+
+.job-header h3 {
+	font-size: 1.125rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin: 0 0 0.25rem 0;
+}
+
+.job-header p {
+	font-size: 0.875rem;
+	color: var(--text-secondary);
+	margin: 0;
+}
+
+.job-description {
+	color: var(--text-secondary);
+	margin-bottom: 1rem;
+}
+
+.job-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.tag {
+	padding: 0.25rem 0.75rem;
+	background: rgba(34, 211, 238, 0.1);
+	color: var(--accent-cyan);
+	border-radius: 1rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
+.btn-sm {
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+}
+
+.dashboard-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.profile-card h3,
+.tips-card h3 {
+	font-size: 1.125rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	margin-bottom: 1rem;
+}
+
+.profile-stats {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.profile-stat-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.profile-stat-item .label {
+	color: var(--text-secondary);
+	font-size: 0.875rem;
+}
+
+.profile-stat-item .value {
+	color: var(--text-primary);
+	font-weight: 600;
+	font-size: 0.875rem;
+}
+
+.status-badge {
+	padding: 0.25rem 0.75rem;
+	background: rgba(16, 185, 129, 0.1);
+	color: #10b981;
+	border-radius: 1rem;
+	font-size: 0.75rem;
+	text-transform: capitalize;
+}
+
+.tips-list {
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin: 0;
+	padding: 0;
+}
+
+.tips-list li {
+	color: var(--text-secondary);
+	font-size: 0.875rem;
+	line-height: 1.6;
+}
+
+.loading-spinner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 60vh;
+	gap: 1rem;
+}
+
+.loading-spinner p {
+	color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+	.dashboard-content {
+		grid-template-columns: 1fr;
+	}
+
+	.dashboard-sidebar {
+		order: -1;
+	}
+}
+
+@media (max-width: 768px) {
+	.dashboard-header {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.stats-grid {
+		grid-template-columns: 1fr;
+	}
+}
