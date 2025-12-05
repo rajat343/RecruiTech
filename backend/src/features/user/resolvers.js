@@ -1,8 +1,11 @@
 const { requireAuth, requireAdmin } = require("../../middleware/auth");
 const authService = require("./services/authService");
 const userService = require("./services/userService");
+const { GraphQLJSON } = require("graphql-type-json");
 
 const userResolvers = {
+	JSON: GraphQLJSON,
+
 	Query: {
 		me: async (parent, args, context) => {
 			const user = requireAuth(context);
@@ -10,7 +13,10 @@ const userResolvers = {
 				id: user._id.toString(),
 				email: user.email,
 				role: user.role,
+				profile_pic: user?.profile_pic,
 				is_admin: user.is_admin,
+				admin_metadata: user?.admin_metadata,
+				metadata: user?.metadata,
 				is_deleted: user.is_deleted,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
@@ -24,7 +30,10 @@ const userResolvers = {
 				id: user._id.toString(),
 				email: user.email,
 				role: user.role,
+				profile_pic: user?.profile_pic,
 				is_admin: user.is_admin,
+				admin_metadata: user?.admin_metadata,
+				metadata: user?.metadata,
 				is_deleted: user.is_deleted,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
@@ -38,7 +47,10 @@ const userResolvers = {
 				id: user._id.toString(),
 				email: user.email,
 				role: user.role,
+				profile_pic: user?.profile_pic,
 				is_admin: user.is_admin,
+				admin_metadata: user?.admin_metadata,
+				metadata: user?.metadata,
 				is_deleted: user.is_deleted,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),
@@ -62,7 +74,10 @@ const userResolvers = {
 				id: user._id.toString(),
 				email: user.email,
 				role: user.role,
+				profile_pic: user?.profile_pic,
 				is_admin: user.is_admin,
+				admin_metadata: user?.admin_metadata,
+				metadata: user?.metadata,
 				is_deleted: user.is_deleted,
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt.toISOString(),

@@ -49,6 +49,7 @@ const Signup = () => {
 									id
 									email
 									role
+									profile_pic
 									is_admin
 								}
 							}

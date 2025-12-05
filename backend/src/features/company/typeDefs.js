@@ -25,7 +25,12 @@ const companyTypeDefs = gql`
 
 	type Query {
 		company(id: ID!): Company
-		companies(is_verified: Boolean, limit: Int, offset: Int): [Company!]!
+		companies(
+			is_verified: Boolean
+			search: String
+			limit: Int
+			offset: Int
+		): [Company!]!
 	}
 
 	type Mutation {

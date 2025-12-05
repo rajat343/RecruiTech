@@ -5,9 +5,8 @@ const recruiterTypeDefs = gql`
 		id: ID!
 		first_name: String!
 		last_name: String!
-		full_name: String!
 		email: String!
-		contact_number: String
+		phone_number: String
 		company_id: ID!
 		verification_status: VerificationStatus!
 		is_deleted: Boolean!
@@ -26,14 +25,14 @@ const recruiterTypeDefs = gql`
 		first_name: String!
 		last_name: String!
 		email: String!
-		contact_number: String
+		phone_number: String
 		company_id: ID!
 	}
 
 	input RecruiterUpdateInput {
 		first_name: String
 		last_name: String
-		contact_number: String
+		phone_number: String
 		company_id: ID
 		verification_status: VerificationStatus
 	}

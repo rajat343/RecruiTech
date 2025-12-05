@@ -32,14 +32,14 @@ const RecruiterHome = () => {
 				const data = await graphqlRequest(
 					`
 					query GetRecruiterProfile {
-						myRecruiterProfile {
-							id
-							first_name
-							last_name
-							email
-							contact_number
-							company_id
-						}
+					myRecruiterProfile {
+						id
+						first_name
+						last_name
+						email
+						phone_number
+						company_id
+					}
 					}
 					`,
 					{},

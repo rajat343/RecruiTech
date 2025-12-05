@@ -192,7 +192,7 @@ mutation {
 			first_name: "John"
 			last_name: "Doe"
 			email: "john.doe@example.com"
-			contact_number: "+1234567890"
+			phone_number: "+1234567890"
 			github_url: "https://github.com/johndoe"
 			leetcode_url: "https://leetcode.com/johndoe"
 			portfolio_url: "https://johndoe.dev"
@@ -204,8 +204,8 @@ mutation {
 		id
 		first_name
 		last_name
-		full_name
 		email
+		phone_number
 		status
 		createdAt
 	}
@@ -301,16 +301,16 @@ mutation {
 			first_name: "Jane"
 			last_name: "Smith"
 			email: "jane.smith@company.com"
-			contact_number: "+1234567890"
-			company_name: "Tech Corp"
-			company_website: "https://techcorp.com"
+			phone_number: "+1234567890"
+			company_id: "COMPANY_ID"
 		}
 	) {
 		id
 		first_name
 		last_name
 		email
-		company_name
+		phone_number
+		company_id
 		verification_status
 	}
 }
@@ -325,7 +325,8 @@ query {
 		first_name
 		last_name
 		email
-		company_name
+		phone_number
+		company_id
 		verification_status
 	}
 }
@@ -340,7 +341,8 @@ query {
 		first_name
 		last_name
 		email
-		company_name
+		phone_number
+		company_id
 		verification_status
 	}
 }
@@ -354,7 +356,8 @@ query {
 		id
 		first_name
 		last_name
-		company_name
+		phone_number
+		company_id
 		verification_status
 	}
 }
@@ -366,14 +369,13 @@ query {
 mutation {
 	updateRecruiter(
 		id: "RECRUITER_ID"
-		input: {
-			company_website: "https://techcorp-updated.com"
-			contact_number: "+9876543210"
-		}
+		input: { first_name: "Jane", phone_number: "+9876543210" }
 	) {
 		id
-		company_website
-		contact_number
+		first_name
+		last_name
+		phone_number
+		company_id
 	}
 }
 ```

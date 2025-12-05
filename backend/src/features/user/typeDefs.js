@@ -1,11 +1,16 @@
 const { gql } = require("apollo-server-express");
 
 const userTypeDefs = gql`
+	scalar JSON
+
 	type User {
 		id: ID!
 		email: String!
 		role: UserRole!
+		profile_pic: String
 		is_admin: Boolean!
+		admin_metadata: JSON
+		metadata: JSON
 		is_deleted: Boolean!
 		createdAt: String!
 		updatedAt: String!

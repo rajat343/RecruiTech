@@ -14,7 +14,7 @@ const companySchema = new mongoose.Schema(
 			unique: true,
 			trim: true,
 		},
-		is_verified: { type: Boolean, default: false },
+		is_verified: { type: Boolean, default: true },
 		is_deleted: { type: Boolean, default: false },
 	},
 	{

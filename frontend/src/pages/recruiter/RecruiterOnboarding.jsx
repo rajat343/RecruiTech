@@ -58,26 +58,26 @@ const RecruiterOnboarding = () => {
 		first_name: "",
 		last_name: "",
 		email: oauthData?.email || user?.email || "",
-		contact_number: "",
+		phone_number: "",
 	}));
 
 	useEffect(() => {
-		// Load companies
+		// Load companies with search filter
 		const fetchCompanies = async () => {
 			setCompaniesLoading(true);
 			try {
 				const data = await graphqlRequest(
 					`
-					query GetCompanies($is_verified: Boolean) {
-						companies(is_verified: $is_verified, limit: 100) {
-							id
-							name
-							domain
-							is_verified
-						}
+				query GetCompanies($is_verified: Boolean, $search: String) {
+					companies(is_verified: $is_verified, search: $search, limit: 10) {
+						id
+						name
+						domain
+						is_verified
 					}
-					`,
-					{ is_verified: true },
+				}
+				`,
+					{ is_verified: true, search: searchTerm || null },
 					token
 				);
 				setCompanies(data.companies);
@@ -88,8 +88,15 @@ const RecruiterOnboarding = () => {
 			}
 		};
 
-		fetchCompanies();
-	}, [token]);
+		if (token) {
+			// Debounce search - wait 300ms after user stops typing
+			const timeoutId = setTimeout(() => {
+				fetchCompanies();
+			}, 300);
+
+			return () => clearTimeout(timeoutId);
+		}
+	}, [token, searchTerm]);
 
 	const handleCompanySelect = (company) => {
 		setSelectedCompany(company);
@@ -164,7 +171,7 @@ const RecruiterOnboarding = () => {
 						first_name: recruiterData.first_name,
 						last_name: recruiterData.last_name,
 						email: recruiterData.email,
-						contact_number: recruiterData.contact_number || null,
+						phone_number: recruiterData.phone_number || null,
 						company_id: selectedCompany.id,
 					},
 				},
@@ -209,10 +216,6 @@ const RecruiterOnboarding = () => {
 		}
 	};
 
-	const filteredCompanies = companies?.filter((company) =>
-		company.name.toLowerCase().includes(searchTerm.toLowerCase())
-	);
-
 	if (step === 1) {
 		return (
 			<div className="onboarding-page">
@@ -251,9 +254,8 @@ const RecruiterOnboarding = () => {
 								<div className="companies-list">
 									{companiesLoading ? (
 										<p>Loading companies...</p>
-									) : filteredCompanies &&
-									  filteredCompanies.length > 0 ? (
-										filteredCompanies.map((company) => (
+									) : companies && companies.length > 0 ? (
+										companies.map((company) => (
 											<button
 												key={company.id}
 												className="company-item"
@@ -453,20 +455,20 @@ const RecruiterOnboarding = () => {
 						</div>
 
 						<div className="form-group">
-							<label htmlFor="contact_number">
+							<label htmlFor="phone_number">
 								<Phone size={18} />
 								Phone Number
 							</label>
 							<input
 								type="tel"
-								id="contact_number"
+								id="phone_number"
 								className="input-field"
 								placeholder="+1 (555) 123-4567"
-								value={recruiterData.contact_number}
+								value={recruiterData.phone_number}
 								onChange={(e) =>
 									setRecruiterData((prev) => ({
 										...prev,
-										contact_number: e.target.value,
+										phone_number: e.target.value,
 									}))
 								}
 							/>

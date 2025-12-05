@@ -1,5 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+	createContext,
+	useContext,
+	useState,
+	useEffect,
+	useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -10,6 +16,13 @@ export const AuthProvider = ({ children }) => {
 	const [loading, setLoading] = useState(true);
 	const [token, setToken] = useState(localStorage.getItem("token"));
 	const navigate = useNavigate();
+
+	const logout = useCallback(() => {
+		localStorage.removeItem("token");
+		setToken(null);
+		setUser(null);
+		navigate("/login");
+	}, [navigate]);
 
 	useEffect(() => {
 		const checkAuth = async () => {
@@ -24,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 					import.meta.env.VITE_GRAPHQL_URL ||
 						"http://localhost:4000/graphql",
 					{
-						query: `query Me { me { id email role is_admin } }`,
+						query: `query Me { me { id email role profile_pic is_admin } }`,
 					},
 					{
 						headers: {
@@ -51,20 +64,13 @@ export const AuthProvider = ({ children }) => {
 		};
 
 		checkAuth();
-	}, [token]);
+	}, [token, logout]);
 
 	const login = (newToken, userData) => {
 		localStorage.setItem("token", newToken);
 		setToken(newToken);
 		setUser(userData);
 		setLoading(false);
-	};
-
-	const logout = () => {
-		localStorage.removeItem("token");
-		setToken(null);
-		setUser(null);
-		navigate("/login");
 	};
 
 	const value = {

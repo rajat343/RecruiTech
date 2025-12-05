@@ -18,10 +18,10 @@ const companyResolvers = {
 			};
 		},
 
-		companies: async (parent, { is_verified, limit, offset }, context) => {
+		companies: async (parent, { search, limit, offset }, context) => {
 			requireAuth(context);
 			const companies = await companyService.getCompanies({
-				is_verified,
+				search,
 				limit,
 				offset,
 			});

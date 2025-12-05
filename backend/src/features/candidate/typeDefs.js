@@ -5,9 +5,8 @@ const candidateTypeDefs = gql`
 		id: ID!
 		first_name: String!
 		last_name: String!
-		full_name: String!
 		email: String!
-		contact_number: String
+		phone_number: String
 		github_url: String
 		leetcode_url: String
 		portfolio_url: String
@@ -30,7 +29,7 @@ const candidateTypeDefs = gql`
 		first_name: String!
 		last_name: String!
 		email: String!
-		contact_number: String
+		phone_number: String
 		github_url: String
 		leetcode_url: String
 		portfolio_url: String
@@ -42,7 +41,7 @@ const candidateTypeDefs = gql`
 	input CandidateUpdateInput {
 		first_name: String
 		last_name: String
-		contact_number: String
+		phone_number: String
 		github_url: String
 		leetcode_url: String
 		portfolio_url: String

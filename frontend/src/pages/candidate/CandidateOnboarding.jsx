@@ -42,7 +42,7 @@ const CandidateOnboarding = () => {
 		first_name: "",
 		last_name: "",
 		email: oauthData?.email || user?.email || "",
-		contact_number: "",
+		phone_number: "",
 		resume_url: "",
 		github_url: "",
 		leetcode_url: "",
@@ -94,7 +94,7 @@ const CandidateOnboarding = () => {
 						first_name: formData.first_name,
 						last_name: formData.last_name,
 						email: formData.email,
-						contact_number: formData.contact_number || null,
+						phone_number: formData.phone_number || null,
 						resume_url: formData.resume_url,
 						github_url: formData.github_url || null,
 						leetcode_url: formData.leetcode_url || null,
@@ -219,17 +219,17 @@ const CandidateOnboarding = () => {
 						</div>
 
 						<div className="form-group">
-							<label htmlFor="contact_number">
+							<label htmlFor="phone_number">
 								<Phone size={18} />
 								Phone Number
 							</label>
 							<input
 								type="tel"
-								id="contact_number"
-								name="contact_number"
+								id="phone_number"
+								name="phone_number"
 								className="input-field"
 								placeholder="+1 (555) 123-4567"
-								value={formData.contact_number}
+								value={formData.phone_number}
 								onChange={handleChange}
 							/>
 						</div>
