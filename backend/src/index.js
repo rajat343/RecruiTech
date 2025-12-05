@@ -38,9 +38,7 @@ app.use(
 // CORS configuration - allow GraphQL Playground
 const corsOptions = {
 	origin:
-		process.env.NODE_ENV === "production"
-			? process.env.FRONTEND_URL || "http://localhost:3000"
-			: true, // Allow all origins in development for GraphQL Playground
+		process.env.NODE_ENV === "production" ? process.env.FRONTEND_URL : true, // Allow all origins in development for GraphQL Playground
 	credentials: true,
 };
 
@@ -62,7 +60,7 @@ app.use(express.urlencoded({ extended: true }));
 // Session middleware for OAuth
 app.use(
 	session({
-		secret: process.env.SESSION_SECRET || "recruitech-session-secret",
+		secret: process.env.SESSION_SECRET,
 		resave: false,
 		saveUninitialized: false,
 		cookie: {
