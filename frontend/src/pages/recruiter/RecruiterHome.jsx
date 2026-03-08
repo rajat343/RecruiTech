@@ -15,6 +15,20 @@ import {
 } from "lucide-react";
 import "../candidate/CandidateHome.css";
 
+const formatDate = (isoString) => {
+	if (!isoString) return "";
+
+	try {
+		return new Date(isoString).toLocaleDateString(undefined, {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+		});
+	} catch {
+		return "";
+	}
+};
+
 const RecruiterHome = () => {
 	const { user, loading: authLoading, token } = useAuth();
 	const navigate = useNavigate();
@@ -35,6 +49,23 @@ const RecruiterHome = () => {
 	});
 	const [saving, setSaving] = useState(false);
 	const [editError, setEditError] = useState(null);
+	const [jobs, setJobs] = useState([]);
+	const [showJobModal, setShowJobModal] = useState(false);
+	const [jobForm, setJobForm] = useState({
+		title: "",
+		description: "",
+		employment_type: "full_time",
+		experience_level: "mid",
+		location_type: "onsite",
+		location: "",
+		salary_min: "",
+		salary_max: "",
+		salary_currency: "USD",
+		skills: "",
+		apply_url: "",
+	});
+	const [jobSaving, setJobSaving] = useState(false);
+	const [jobError, setJobError] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -61,6 +92,21 @@ const RecruiterHome = () => {
 							id
 							created_by
 						}
+						myJobPosts(limit: 20, offset: 0) {
+							id
+							title
+							description
+							employment_type
+							experience_level
+							location_type
+							location
+							salary_min
+							salary_max
+							salary_currency
+							skills
+							is_active
+							createdAt
+						}
 					}
 					`,
 					{},
@@ -74,6 +120,7 @@ const RecruiterHome = () => {
 				);
 				setHasCreatedCompanies(createdCompanies.length > 0);
 
+				setJobs(data.myJobPosts || []);
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -251,6 +298,116 @@ const RecruiterHome = () => {
 		setEditError(null);
 	};
 
+	const handlePostNewJobClick = () => {
+		// Ensure recruiter has a company before posting jobs
+		if (!recruiter?.company_id || !hasCreatedCompanies) {
+			navigate("/recruiter/onboarding");
+			return;
+		}
+
+		setJobForm({
+			title: "",
+			description: "",
+			employment_type: "full_time",
+			experience_level: "mid",
+			location_type: "onsite",
+			location: "",
+			salary_min: "",
+			salary_max: "",
+			salary_currency: "USD",
+			skills: "",
+			apply_url: "",
+		});
+		setJobError(null);
+		setShowJobModal(true);
+	};
+
+	const handleCloseJobModal = () => {
+		setShowJobModal(false);
+		setJobError(null);
+	};
+
+	const handleCreateJob = async (e) => {
+		e.preventDefault();
+		setJobError(null);
+		setJobSaving(true);
+
+		try {
+			const salaryMin = jobForm.salary_min
+				? parseInt(jobForm.salary_min, 10)
+				: null;
+			const salaryMax = jobForm.salary_max
+				? parseInt(jobForm.salary_max, 10)
+				: null;
+
+			if (
+				Number.isFinite(salaryMin) &&
+				Number.isFinite(salaryMax) &&
+				salaryMin > salaryMax
+			) {
+				throw new Error(
+					"Minimum salary cannot be greater than maximum salary."
+				);
+			}
+
+			const skillsArray = jobForm.skills
+				? jobForm.skills
+						.split(",")
+						.map((s) => s.trim())
+						.filter(Boolean)
+				: [];
+
+			const variables = {
+				input: {
+					title: jobForm.title.trim(),
+					description: jobForm.description.trim(),
+					employment_type: jobForm.employment_type,
+					experience_level: jobForm.experience_level,
+					location_type: jobForm.location_type,
+					location: jobForm.location.trim(),
+					salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
+					salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
+					salary_currency: jobForm.salary_currency || null,
+					skills: skillsArray.length ? skillsArray : null,
+					apply_url: jobForm.apply_url || null,
+				},
+			};
+
+			const data = await graphqlRequest(
+				`
+				mutation CreateJob($input: JobInput!) {
+					createJob(input: $input) {
+						id
+						title
+						description
+						employment_type
+						experience_level
+						location_type
+						location
+						salary_min
+						salary_max
+						salary_currency
+						skills
+						is_active
+						createdAt
+					}
+				}
+				`,
+				variables,
+				token
+			);
+
+			const createdJob = data.createJob;
+			setJobs((prev) => [createdJob, ...(prev || [])]);
+			setShowJobModal(false);
+		} catch (err) {
+			console.error("Error creating job:", err);
+			setJobError(err.message || "Failed to create job posting");
+		} finally {
+			setJobSaving(false);
+		}
+	};
+
 	return (
 		<div className="dashboard-page">
 			<div className="container">
@@ -265,7 +422,10 @@ const RecruiterHome = () => {
 							candidates
 						</p>
 					</div>
-					<button className="btn btn-primary">
+					<button
+						className="btn btn-primary"
+						onClick={handlePostNewJobClick}
+					>
 						<PlusCircle size={20} />
 						Post New Job
 					</button>
@@ -283,7 +443,7 @@ const RecruiterHome = () => {
 							/>
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">8</div>
+							<div className="stat-value">{jobs.length}</div>
 							<div className="stat-label">Active Jobs</div>
 						</div>
 					</div>
@@ -335,86 +495,130 @@ const RecruiterHome = () => {
 					<div className="dashboard-section">
 						<h2>Active Job Postings</h2>
 						<div className="job-list">
-							<div className="job-card">
-								<div className="job-header">
-									<div className="job-icon">👨‍💻</div>
-									<div>
-										<h3>Senior Frontend Developer</h3>
-										<p>Posted 5 days ago • 23 applicants</p>
+							{jobs.length === 0 ? (
+								<div className="job-card">
+									<div className="job-header">
+										<div className="job-icon">💼</div>
+										<div>
+											<h3>No job postings yet</h3>
+											<p>
+												Start by publishing your first
+												role to attract candidates.
+											</p>
+										</div>
+									</div>
+									<div className="job-actions">
+										<button
+											className="btn btn-primary btn-sm"
+											onClick={handlePostNewJobClick}
+										>
+											<PlusCircle size={16} />
+											Create Job Posting
+										</button>
 									</div>
 								</div>
-								<p className="job-description">
-									Looking for an experienced React developer
-									to join our team...
-								</p>
-								<div className="job-tags">
-									<span className="tag">React</span>
-									<span className="tag">TypeScript</span>
-									<span className="tag">Remote</span>
-								</div>
-								<div className="job-actions">
-									<button className="btn btn-outline btn-sm">
-										View Applicants
-									</button>
-									<button className="btn btn-primary btn-sm">
-										Edit Job
-									</button>
-								</div>
-							</div>
-
-							<div className="job-card">
-								<div className="job-header">
-									<div className="job-icon">🚀</div>
-									<div>
-										<h3>Full Stack Engineer</h3>
-										<p>Posted 2 days ago • 31 applicants</p>
+							) : (
+								jobs.map((job) => (
+									<div className="job-card" key={job.id}>
+										<div className="job-header">
+											<div className="job-icon">💼</div>
+											<div>
+												<h3>{job.title}</h3>
+												<p>
+													{job.employment_type
+														.replace("_", " ")
+														.replace(
+															/\b\w/g,
+															(c) =>
+																c.toUpperCase()
+														)}{" "}
+													•{" "}
+													{job.experience_level
+														.charAt(0)
+														.toUpperCase() +
+														job.experience_level.slice(
+															1
+														)}{" "}
+													•{" "}
+													{job.location_type ===
+													"remote"
+														? "Remote"
+														: job.location}
+												</p>
+											</div>
+										</div>
+										<p className="job-description">
+											{job.description &&
+											job.description.length > 220
+												? `${job.description.slice(
+														0,
+														217
+												  )}...`
+												: job.description}
+										</p>
+										<div className="job-tags">
+											{job.location_type && (
+												<span className="tag">
+													{job.location_type ===
+													"remote"
+														? "Remote"
+														: job.location_type}
+												</span>
+											)}
+											{job.experience_level && (
+												<span className="tag">
+													{job.experience_level
+														.charAt(0)
+														.toUpperCase() +
+														job.experience_level.slice(
+															1
+														)}
+												</span>
+											)}
+											{job.employment_type && (
+												<span className="tag">
+													{job.employment_type
+														.replace("_", " ")
+														.replace(
+															/\b\w/g,
+															(c) =>
+																c.toUpperCase()
+														)}
+												</span>
+											)}
+											{Array.isArray(job.skills) &&
+												job.skills
+													.slice(0, 3)
+													.map((skill) => (
+														<span
+															className="tag"
+															key={`${job.id}-${skill}`}
+														>
+															{skill}
+														</span>
+													))}
+										</div>
+										<div className="job-actions">
+											<span
+												style={{
+													color: "var(--text-secondary)",
+													fontSize: "0.8rem",
+													marginRight: "auto",
+												}}
+											>
+												Posted{" "}
+												{formatDate(job.createdAt)}
+											</span>
+											<button className="btn btn-outline btn-sm">
+												View Applicants
+											</button>
+											<button className="btn btn-primary btn-sm">
+												Edit Job
+											</button>
+										</div>
 									</div>
-								</div>
-								<p className="job-description">
-									Join our fast-growing team and help build
-									innovative solutions...
-								</p>
-								<div className="job-tags">
-									<span className="tag">Node.js</span>
-									<span className="tag">React</span>
-									<span className="tag">AWS</span>
-								</div>
-								<div className="job-actions">
-									<button className="btn btn-outline btn-sm">
-										View Applicants
-									</button>
-									<button className="btn btn-primary btn-sm">
-										Edit Job
-									</button>
-								</div>
-							</div>
-
-							<div className="job-card">
-								<div className="job-header">
-									<div className="job-icon">📊</div>
-									<div>
-										<h3>Data Scientist</h3>
-										<p>Posted 1 week ago • 18 applicants</p>
-									</div>
-								</div>
-								<p className="job-description">
-									Seeking a data scientist to help us make
-									data-driven decisions...
-								</p>
-								<div className="job-tags">
-									<span className="tag">Python</span>
-									<span className="tag">ML</span>
-									<span className="tag">SQL</span>
-								</div>
-								<div className="job-actions">
-									<button className="btn btn-outline btn-sm">
-										View Applicants
-									</button>
-									<button className="btn btn-primary btn-sm">
-										Edit Job
-									</button>
-								</div>
-							</div>
+								))
+							)}
 						</div>
 					</div>
 
@@ -465,6 +669,347 @@ const RecruiterHome = () => {
 						</div>
 					</div>
 				</div>
+
+				{/* New Job Posting Modal */}
+				{showJobModal && (
+					<div className="modal-overlay" onClick={handleCloseJobModal}>
+						<div
+							className="modal-content modal-large"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className="modal-header">
+								<h2>Create Job Posting</h2>
+								<button
+									className="modal-close"
+									onClick={handleCloseJobModal}
+								>
+									<X size={24} />
+								</button>
+							</div>
+							<div className="modal-body">
+								{jobError && (
+									<div className="alert alert-error">
+										{jobError}
+									</div>
+								)}
+
+								<form onSubmit={handleCreateJob}>
+									<div className="form-section">
+										<div className="form-section-title">
+											<Briefcase size={18} />
+											<span>Role details</span>
+										</div>
+										<div className="form-group">
+											<label htmlFor="job_title">
+												Job Title *
+											</label>
+											<input
+												type="text"
+												id="job_title"
+												className="input-field"
+												placeholder="e.g. Senior Frontend Engineer"
+												value={jobForm.title}
+												onChange={(e) =>
+													setJobForm({
+														...jobForm,
+														title: e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+										<div className="form-group">
+											<label htmlFor="job_description">
+												Job Description *
+											</label>
+											<textarea
+												id="job_description"
+												className="input-field"
+												placeholder="Describe the role, key responsibilities, and what success looks like in the first 6–12 months."
+												value={jobForm.description}
+												onChange={(e) =>
+													setJobForm({
+														...jobForm,
+														description:
+															e.target.value,
+													})
+												}
+												required
+											/>
+										</div>
+									</div>
+
+									<div className="form-section">
+										<div className="form-section-title">
+											<Users size={18} />
+											<span>Location & type</span>
+										</div>
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="employment_type">
+													Employment Type *
+												</label>
+												<select
+													id="employment_type"
+													className="input-field"
+													value={
+														jobForm.employment_type
+													}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															employment_type:
+																e.target.value,
+														})
+													}
+													required
+												>
+													<option value="full_time">
+														Full-time
+													</option>
+													<option value="part_time">
+														Part-time
+													</option>
+													<option value="contract">
+														Contract
+													</option>
+													<option value="internship">
+														Internship
+													</option>
+													<option value="freelance">
+														Freelance
+													</option>
+												</select>
+											</div>
+											<div className="form-group">
+												<label htmlFor="experience_level">
+													Experience Level *
+												</label>
+												<select
+													id="experience_level"
+													className="input-field"
+													value={
+														jobForm.experience_level
+													}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															experience_level:
+																e.target.value,
+														})
+													}
+													required
+												>
+													<option value="junior">
+														Junior
+													</option>
+													<option value="mid">
+														Mid
+													</option>
+													<option value="senior">
+														Senior
+													</option>
+													<option value="lead">
+														Lead
+													</option>
+												</select>
+											</div>
+										</div>
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="location_type">
+													Work Arrangement *
+												</label>
+												<select
+													id="location_type"
+													className="input-field"
+													value={jobForm.location_type}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															location_type:
+																e.target.value,
+														})
+													}
+													required
+												>
+													<option value="onsite">
+														Onsite
+													</option>
+													<option value="remote">
+														Remote
+													</option>
+													<option value="hybrid">
+														Hybrid
+													</option>
+												</select>
+											</div>
+											<div className="form-group">
+												<label htmlFor="location">
+													Location *
+												</label>
+												<input
+													type="text"
+													id="location"
+													className="input-field"
+													placeholder="e.g. Bengaluru, India or Remote"
+													value={jobForm.location}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															location:
+																e.target.value,
+														})
+													}
+													required
+												/>
+											</div>
+										</div>
+									</div>
+
+									<div className="form-section">
+										<div className="form-section-title">
+											<TrendingUp size={18} />
+											<span>Compensation & skills</span>
+										</div>
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="salary_min">
+													Min Salary
+												</label>
+												<input
+													type="number"
+													id="salary_min"
+													className="input-field"
+													min="0"
+													value={jobForm.salary_min}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															salary_min:
+																e.target.value,
+														})
+													}
+												/>
+											</div>
+											<div className="form-group">
+												<label htmlFor="salary_max">
+													Max Salary
+												</label>
+												<input
+													type="number"
+													id="salary_max"
+													className="input-field"
+													min="0"
+													value={jobForm.salary_max}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															salary_max:
+																e.target.value,
+														})
+													}
+												/>
+											</div>
+										</div>
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="salary_currency">
+													Currency
+												</label>
+												<select
+													id="salary_currency"
+													className="input-field"
+													value={
+														jobForm.salary_currency
+													}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															salary_currency:
+																e.target.value,
+														})
+													}
+												>
+													<option value="USD">
+														USD
+													</option>
+													<option value="INR">
+														INR
+													</option>
+													<option value="EUR">
+														EUR
+													</option>
+													<option value="GBP">
+														GBP
+													</option>
+												</select>
+											</div>
+											<div className="form-group">
+												<label htmlFor="skills">
+													Key Skills (comma-separated)
+												</label>
+												<input
+													type="text"
+													id="skills"
+													className="input-field"
+													placeholder="e.g. React, TypeScript, GraphQL"
+													value={jobForm.skills}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															skills:
+																e.target.value,
+														})
+													}
+												/>
+											</div>
+										</div>
+										<div className="form-group">
+											<label htmlFor="apply_url">
+												Application URL (optional)
+											</label>
+											<input
+												type="url"
+												id="apply_url"
+												className="input-field"
+												placeholder="https://your-careers-page.com/job/123"
+												value={jobForm.apply_url}
+												onChange={(e) =>
+													setJobForm({
+														...jobForm,
+														apply_url:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+									</div>
+
+									<div className="modal-actions">
+										<button
+											type="button"
+											className="btn btn-outline"
+											onClick={handleCloseJobModal}
+											disabled={jobSaving}
+										>
+											Cancel
+										</button>
+										<button
+											type="submit"
+											className="btn btn-primary"
+											disabled={jobSaving}
+										>
+											{jobSaving
+												? "Publishing..."
+												: "Publish Job"}
+										</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					</div>
+				)}
 
 				{/* Profile Edit Modal */}
 				{showProfileModal && (
