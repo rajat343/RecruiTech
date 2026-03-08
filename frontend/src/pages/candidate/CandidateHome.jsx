@@ -27,15 +27,32 @@ const CandidateHome = () => {
 	const [error, setError] = useState(null);
 	const [showEditModal, setShowEditModal] = useState(false);
 	const [profileForm, setProfileForm] = useState({
+		// Core
 		first_name: "",
 		last_name: "",
 		phone_number: "",
+		// Location
+		location_city: "",
+		location_state: "",
+		location_country: "",
+		// Work eligibility
+		work_authorized: null,
+		sponsorship_needed: null,
+		// Links
 		resume_url: "",
+		linkedin_url: "",
 		github_url: "",
 		leetcode_url: "",
 		portfolio_url: "",
+		// Professional summary
+		headline: "",
+		skills: "",
 		profile_summary: "",
 		status: "actively_looking",
+		// Demographics
+		demographics_race_ethnicity: "",
+		demographics_gender: "",
+		demographics_disability: "",
 	});
 	const [saving, setSaving] = useState(false);
 	const [editError, setEditError] = useState(null);
@@ -60,11 +77,24 @@ const CandidateHome = () => {
 							email
 							phone_number
 							status
+							location_city
+							location_state
+							location_country
+							work_authorized
+							sponsorship_needed
 							resume_url
+							linkedin_url
 							github_url
 							leetcode_url
 							portfolio_url
+							headline
+							skills
 							profile_summary
+							demographics {
+								race_ethnicity
+								gender
+								disability
+							}
 						}
 					}
 					`,
@@ -109,12 +139,33 @@ const CandidateHome = () => {
 			first_name: candidate.first_name,
 			last_name: candidate.last_name,
 			phone_number: candidate.phone_number || "",
+			location_city: candidate.location_city || "",
+			location_state: candidate.location_state || "",
+			location_country: candidate.location_country || "",
+			work_authorized:
+				typeof candidate.work_authorized === "boolean"
+					? candidate.work_authorized
+					: null,
+			sponsorship_needed:
+				typeof candidate.sponsorship_needed === "boolean"
+					? candidate.sponsorship_needed
+					: null,
 			resume_url: candidate.resume_url || "",
+			linkedin_url: candidate.linkedin_url || "",
 			github_url: candidate.github_url || "",
 			leetcode_url: candidate.leetcode_url || "",
 			portfolio_url: candidate.portfolio_url || "",
+			headline: candidate.headline || "",
+			skills: Array.isArray(candidate.skills)
+				? candidate.skills.join(", ")
+				: "",
 			profile_summary: candidate.profile_summary || "",
 			status: candidate.status,
+			demographics_race_ethnicity:
+				candidate.demographics?.race_ethnicity || "",
+			demographics_gender: candidate.demographics?.gender || "",
+			demographics_disability:
+				candidate.demographics?.disability || "",
 		});
 		setShowEditModal(true);
 		setEditError(null);
@@ -134,12 +185,25 @@ const CandidateHome = () => {
 						first_name
 						last_name
 						phone_number
+						location_city
+						location_state
+						location_country
+						work_authorized
+						sponsorship_needed
 						resume_url
+						linkedin_url
 						github_url
 						leetcode_url
 						portfolio_url
+						headline
+						skills
 						profile_summary
 						status
+						demographics {
+							race_ethnicity
+							gender
+							disability
+						}
 					}
 				}
 				`,
@@ -149,12 +213,44 @@ const CandidateHome = () => {
 						first_name: profileForm.first_name,
 						last_name: profileForm.last_name,
 						phone_number: profileForm.phone_number || null,
+						// Location
+						location_city: profileForm.location_city || null,
+						location_state: profileForm.location_state || null,
+						location_country: profileForm.location_country || null,
+						// Work eligibility
+						work_authorized:
+							profileForm.work_authorized !== null
+								? profileForm.work_authorized
+								: null,
+						sponsorship_needed:
+							profileForm.sponsorship_needed !== null
+								? profileForm.sponsorship_needed
+								: null,
+						// Links
 						resume_url: profileForm.resume_url || null,
+						linkedin_url: profileForm.linkedin_url || null,
 						github_url: profileForm.github_url || null,
 						leetcode_url: profileForm.leetcode_url || null,
 						portfolio_url: profileForm.portfolio_url || null,
-						profile_summary: profileForm.profile_summary || null,
+						// Professional summary
+						headline: profileForm.headline || null,
+						skills: profileForm.skills
+							? profileForm.skills
+									.split(",")
+									.map((s) => s.trim())
+									.filter(Boolean)
+							: null,
+						profile_summary:
+							profileForm.profile_summary || null,
+						// Status & demographics
 						status: profileForm.status,
+						demographics: {
+							race_ethnicity:
+								profileForm.demographics_race_ethnicity || null,
+							gender: profileForm.demographics_gender || null,
+							disability:
+								profileForm.demographics_disability || null,
+						},
 					},
 				},
 				token
@@ -440,6 +536,172 @@ const CandidateHome = () => {
 												}
 											/>
 										</div>
+
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="location_city">
+													City
+												</label>
+												<input
+													type="text"
+													id="location_city"
+													className="input-field"
+													placeholder="Bengaluru"
+													value={
+														profileForm.location_city
+													}
+													onChange={(e) =>
+														setProfileForm({
+															...profileForm,
+															location_city:
+																e.target.value,
+														})
+													}
+												/>
+											</div>
+											<div className="form-group">
+												<label htmlFor="location_state">
+													State / Province
+												</label>
+												<input
+													type="text"
+													id="location_state"
+													className="input-field"
+													placeholder="Karnataka"
+													value={
+														profileForm.location_state
+													}
+													onChange={(e) =>
+														setProfileForm({
+															...profileForm,
+															location_state:
+																e.target.value,
+														})
+													}
+												/>
+											</div>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="location_country">
+												Country
+											</label>
+											<input
+												type="text"
+												id="location_country"
+												className="input-field"
+												placeholder="India"
+												value={
+													profileForm.location_country
+												}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														location_country:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+									</div>
+
+									{/* Work Eligibility */}
+									<div className="form-section">
+										<h3 className="form-section-title">
+											<Briefcase size={18} />
+											Work Eligibility
+										</h3>
+										<div className="form-group">
+											<label>Work authorization</label>
+											<div className="radio-group">
+												<button
+													type="button"
+													className={`chip-button ${
+														profileForm.work_authorized ===
+														true
+															? "selected"
+															: ""
+													}`}
+													onClick={() =>
+														setProfileForm({
+															...profileForm,
+															work_authorized:
+																true,
+														})
+													}
+												>
+													Yes, I am authorized to
+													work without restrictions
+												</button>
+												<button
+													type="button"
+													className={`chip-button ${
+														profileForm.work_authorized ===
+														false
+															? "selected"
+															: ""
+													}`}
+													onClick={() =>
+														setProfileForm({
+															...profileForm,
+															work_authorized:
+																false,
+														})
+													}
+												>
+													No, I am not currently
+													authorized
+												</button>
+											</div>
+										</div>
+
+										<div className="form-group">
+											<label>
+												Will you require visa
+												sponsorship now or in the
+												future?
+											</label>
+											<div className="radio-group">
+												<button
+													type="button"
+													className={`chip-button ${
+														profileForm.sponsorship_needed ===
+														true
+															? "selected"
+															: ""
+													}`}
+													onClick={() =>
+														setProfileForm({
+															...profileForm,
+															sponsorship_needed:
+																true,
+														})
+													}
+												>
+													Yes, I will need
+													sponsorship
+												</button>
+												<button
+													type="button"
+													className={`chip-button ${
+														profileForm.sponsorship_needed ===
+														false
+															? "selected"
+															: ""
+													}`}
+													onClick={() =>
+														setProfileForm({
+															...profileForm,
+															sponsorship_needed:
+																false,
+														})
+													}
+												>
+													No, I will not need
+													sponsorship
+												</button>
+											</div>
+										</div>
 									</div>
 
 									{/* Links & URLs */}
@@ -448,6 +710,44 @@ const CandidateHome = () => {
 											<Link size={18} />
 											Links & URLs
 										</h3>
+										<div className="form-group">
+											<label htmlFor="headline">
+												Short headline
+											</label>
+											<input
+												type="text"
+												id="headline"
+												className="input-field"
+												placeholder="Backend Engineer | Go + AWS"
+												value={profileForm.headline}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														headline:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="skills">
+												Skills (comma-separated)
+											</label>
+											<input
+												type="text"
+												id="skills"
+												className="input-field"
+												placeholder="React, TypeScript, GraphQL"
+												value={profileForm.skills}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														skills: e.target.value,
+													})
+												}
+											/>
+										</div>
 										<div className="form-group">
 											<label htmlFor="resume_url">
 												<FileTextIcon size={16} />
@@ -484,6 +784,26 @@ const CandidateHome = () => {
 													setProfileForm({
 														...profileForm,
 														github_url:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+										<div className="form-group">
+											<label htmlFor="linkedin_url">
+												<Globe size={16} />
+												LinkedIn URL
+											</label>
+											<input
+												type="url"
+												id="linkedin_url"
+												className="input-field"
+												placeholder="https://linkedin.com/in/username"
+												value={profileForm.linkedin_url}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														linkedin_url:
 															e.target.value,
 													})
 												}
@@ -561,7 +881,6 @@ const CandidateHome = () => {
 											/>
 										</div>
 									</div>
-
 									{/* Job Search Status */}
 									<div className="form-section">
 										<h3 className="form-section-title">
@@ -594,6 +913,86 @@ const CandidateHome = () => {
 													Not Looking
 												</option>
 											</select>
+										</div>
+									</div>
+
+									{/* Demographics (optional) */}
+									<div className="form-section">
+										<h3 className="form-section-title">
+											<FileTextIcon size={18} />
+											Demographics (optional)
+										</h3>
+										<p className="field-hint">
+											Optional. Used for equal opportunity
+											reporting and fairness analysis.
+											This information is not shared with
+											employers in a way that identifies
+											you.
+										</p>
+										<div className="form-group">
+											<label htmlFor="demographics_race_ethnicity">
+												Race / Ethnicity
+											</label>
+											<input
+												type="text"
+												id="demographics_race_ethnicity"
+												className="input-field"
+												placeholder="Prefer not to say"
+												value={
+													profileForm.demographics_race_ethnicity
+												}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														demographics_race_ethnicity:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="demographics_gender">
+												Gender
+											</label>
+											<input
+												type="text"
+												id="demographics_gender"
+												className="input-field"
+												placeholder="Prefer not to say"
+												value={
+													profileForm.demographics_gender
+												}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														demographics_gender:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+
+										<div className="form-group">
+											<label htmlFor="demographics_disability">
+												Disability
+											</label>
+											<input
+												type="text"
+												id="demographics_disability"
+												className="input-field"
+												placeholder="Prefer not to say"
+												value={
+													profileForm.demographics_disability
+												}
+												onChange={(e) =>
+													setProfileForm({
+														...profileForm,
+														demographics_disability:
+															e.target.value,
+													})
+												}
+											/>
 										</div>
 									</div>
 
