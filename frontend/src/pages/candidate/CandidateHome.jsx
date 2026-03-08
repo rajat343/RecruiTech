@@ -45,7 +45,6 @@ const CandidateHome = () => {
 		leetcode_url: "",
 		portfolio_url: "",
 		// Professional summary
-		headline: "",
 		skills: "",
 		profile_summary: "",
 		status: "actively_looking",
@@ -87,7 +86,6 @@ const CandidateHome = () => {
 							github_url
 							leetcode_url
 							portfolio_url
-							headline
 							skills
 							profile_summary
 							demographics {
@@ -155,8 +153,7 @@ const CandidateHome = () => {
 			github_url: candidate.github_url || "",
 			leetcode_url: candidate.leetcode_url || "",
 			portfolio_url: candidate.portfolio_url || "",
-			headline: candidate.headline || "",
-			skills: Array.isArray(candidate.skills)
+							skills: Array.isArray(candidate.skills)
 				? candidate.skills.join(", ")
 				: "",
 			profile_summary: candidate.profile_summary || "",
@@ -195,7 +192,6 @@ const CandidateHome = () => {
 						github_url
 						leetcode_url
 						portfolio_url
-						headline
 						skills
 						profile_summary
 						status
@@ -233,7 +229,6 @@ const CandidateHome = () => {
 						leetcode_url: profileForm.leetcode_url || null,
 						portfolio_url: profileForm.portfolio_url || null,
 						// Professional summary
-						headline: profileForm.headline || null,
 						skills: profileForm.skills
 							? profileForm.skills
 									.split(",")
@@ -546,7 +541,6 @@ const CandidateHome = () => {
 													type="text"
 													id="location_city"
 													className="input-field"
-													placeholder="Bengaluru"
 													value={
 														profileForm.location_city
 													}
@@ -567,7 +561,6 @@ const CandidateHome = () => {
 													type="text"
 													id="location_state"
 													className="input-field"
-													placeholder="Karnataka"
 													value={
 														profileForm.location_state
 													}
@@ -590,7 +583,6 @@ const CandidateHome = () => {
 												type="text"
 												id="location_country"
 												className="input-field"
-												placeholder="India"
 												value={
 													profileForm.location_country
 												}
@@ -710,26 +702,6 @@ const CandidateHome = () => {
 											<Link size={18} />
 											Links & URLs
 										</h3>
-										<div className="form-group">
-											<label htmlFor="headline">
-												Short headline
-											</label>
-											<input
-												type="text"
-												id="headline"
-												className="input-field"
-												placeholder="Backend Engineer | Go + AWS"
-												value={profileForm.headline}
-												onChange={(e) =>
-													setProfileForm({
-														...profileForm,
-														headline:
-															e.target.value,
-													})
-												}
-											/>
-										</div>
-
 										<div className="form-group">
 											<label htmlFor="skills">
 												Skills (comma-separated)

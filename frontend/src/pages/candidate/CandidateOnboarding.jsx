@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
 import axios from "axios";
-import { countries } from "../../utils/locationData";
+import { Country, State, City } from "country-state-city";
 import {
 	User,
 	Mail,
@@ -81,7 +81,6 @@ const CandidateOnboarding = () => {
 		leetcode_url: "",
 		portfolio_url: "",
 		// Professional summary
-		headline: "",
 		skills: "",
 		profile_summary: "",
 		// Detailed experiences & education
@@ -108,13 +107,18 @@ const CandidateOnboarding = () => {
 		setError("");
 
 		if (step === 1) {
+			const states = formData.location_country
+				? State.getStatesOfCountry(formData.location_country)
+				: [];
+			const needsState = states.length > 0;
 			if (
 				!formData.first_name ||
 				!formData.last_name ||
 				!formData.email ||
 				!formData.resume_url ||
 				!formData.location_country ||
-				!formData.location_state
+				(needsState && !formData.location_state) ||
+				!formData.location_city
 			) {
 				setError("Please fill in all required fields on this step.");
 				return;
@@ -184,8 +188,7 @@ const CandidateOnboarding = () => {
 					!exp.is_current &&
 					exp.start_date &&
 					exp.end_date &&
-					new Date(`${exp.start_date}-01`) >
-						new Date(`${exp.end_date}-01`)
+					new Date(exp.start_date) > new Date(exp.end_date)
 				) {
 					setError(
 						"Work experience end date cannot be before start date."
@@ -309,7 +312,6 @@ const CandidateOnboarding = () => {
 						portfolio_url: formData.portfolio_url || null,
 						// Professional summary
 						resume_url: formData.resume_url,
-						headline: formData.headline || null,
 						skills: skillsArray.length ? skillsArray : null,
 						profile_summary: formData.profile_summary || null,
 						// Detailed experience & education
@@ -520,6 +522,7 @@ const CandidateOnboarding = () => {
 														location_country:
 															e.target.value,
 														location_state: "",
+														location_city: "",
 													}))
 												}
 												required
@@ -527,14 +530,16 @@ const CandidateOnboarding = () => {
 												<option value="">
 													Select country
 												</option>
-												{countries.map((country) => (
-													<option
-														key={country.code}
-														value={country.code}
-													>
-														{country.name}
-													</option>
-												))}
+												{Country.getAllCountries().map(
+													(c) => (
+														<option
+															key={c.isoCode}
+															value={c.isoCode}
+														>
+															{c.name}
+														</option>
+													)
+												)}
 											</select>
 										</div>
 										<div className="form-group">
@@ -546,48 +551,97 @@ const CandidateOnboarding = () => {
 												name="location_state"
 												className="input-field"
 												value={formData.location_state}
-												onChange={handleChange}
+												onChange={(e) =>
+													setFormData((prev) => ({
+														...prev,
+														location_state:
+															e.target.value,
+														location_city: "",
+													}))
+												}
 												disabled={
 													!formData.location_country
 												}
-												required
+												required={
+													State.getStatesOfCountry(
+														formData.location_country
+													).length > 0
+												}
 											>
 												<option value="">
 													{formData.location_country
 														? "Select state / province"
 														: "Select country first"}
 												</option>
-												{countries
-													.find(
-														(c) =>
-															c.code ===
-															formData.location_country
-													)
-													?.states.map((state) => (
-														<option
-															key={state.code}
-															value={state.code}
-														>
-															{state.name}
-														</option>
-													))}
+												{State.getStatesOfCountry(
+													formData.location_country
+												).map((s) => (
+													<option
+														key={s.isoCode}
+														value={s.isoCode}
+													>
+														{s.name}
+													</option>
+												))}
 											</select>
 										</div>
 									</div>
 
 									<div className="form-group">
 										<label htmlFor="location_city">
-											City
+											City *
 										</label>
-										<input
-											type="text"
+										<select
 											id="location_city"
 											name="location_city"
 											className="input-field"
-											placeholder="Bengaluru"
 											value={formData.location_city}
 											onChange={handleChange}
-										/>
+											disabled={
+												!formData.location_country ||
+												(!formData.location_state &&
+													State.getStatesOfCountry(
+														formData.location_country
+													).length > 0)
+											}
+											required
+										>
+											<option value="">
+												{!formData.location_country
+													? "Select country first"
+													: State.getStatesOfCountry(
+															formData.location_country
+														).length > 0 &&
+													  !formData.location_state
+													? "Select state first"
+													: "Select city"}
+											</option>
+											{(() => {
+												const states = State.getStatesOfCountry(
+													formData.location_country
+												);
+												const cities =
+													states.length > 0 &&
+													formData.location_state
+														? City.getCitiesOfState(
+																formData.location_country,
+																formData.location_state
+															)
+														: formData.location_country
+														? City.getCitiesOfCountry(
+																formData.location_country
+															) || []
+														: [];
+												return cities.map((c) => (
+													<option
+														key={c.name}
+														value={c.name}
+													>
+														{c.name}
+													</option>
+												));
+											})()}
+										</select>
 									</div>
 
 									<div className="form-group">
@@ -707,21 +761,6 @@ const CandidateOnboarding = () => {
 							{/* Step 3: Links + experience/education */}
 							{step === 3 && (
 								<>
-									<div className="form-group">
-										<label htmlFor="headline">
-											Short headline (optional)
-										</label>
-										<input
-											type="text"
-											id="headline"
-											name="headline"
-											className="input-field"
-											placeholder="Backend Engineer | Go + AWS"
-											value={formData.headline}
-											onChange={handleChange}
-										/>
-									</div>
-
 									<div className="form-group">
 										<label htmlFor="skills">
 											Skills (comma-separated, optional)
@@ -924,7 +963,7 @@ const CandidateOnboarding = () => {
 																	Start date
 																</label>
 																<input
-																	type="month"
+																	type="date"
 																	id={`exp_start_${index}`}
 																	className="input-field"
 																	value={
@@ -971,7 +1010,7 @@ const CandidateOnboarding = () => {
 																	End date
 																</label>
 																<input
-																	type="month"
+																	type="date"
 																	id={`exp_end_${index}`}
 																	className="input-field"
 																	value={

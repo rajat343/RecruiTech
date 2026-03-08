@@ -12,6 +12,7 @@
   "dependencies": {
     "@apollo/client": "^4.0.9",
     "axios": "^1.13.2",
+    "country-state-city": "^3.2.1",
     "graphql": "^16.12.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
