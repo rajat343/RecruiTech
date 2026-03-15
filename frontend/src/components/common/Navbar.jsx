@@ -32,9 +32,15 @@ const Navbar = () => {
 					<Link to="/" className="nav-link">
 						Home
 					</Link>
-					<Link to="/find-jobs" className="nav-link">
-						Find Jobs
-					</Link>
+					{isAuthenticated && user?.role === "candidate" ? (
+						<Link to="/candidate/jobs" className="nav-link">
+							Find Jobs
+						</Link>
+					) : (
+						<Link to="/find-jobs" className="nav-link">
+							Find Jobs
+						</Link>
+					)}
 					<Link to="/for-employers" className="nav-link">
 						For Employers
 					</Link>

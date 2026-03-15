@@ -39,6 +39,8 @@ const jobTypeDefs = gql`
     apply_url: String
     is_active: Boolean!
     is_deleted: Boolean!
+    company_name: String
+    application_count: Int
     createdAt: String!
     updatedAt: String!
   }
@@ -58,8 +60,23 @@ const jobTypeDefs = gql`
     company_id: ID
   }
 
+  input JobSearchInput {
+    search: String
+    employment_type: EmploymentType
+    experience_level: ExperienceLevel
+    location_type: LocationType
+    skills: [String!]
+  }
+
+  type JobSearchResult {
+    jobs: [Job!]!
+    total: Int!
+  }
+
   type Query {
     jobs(limit: Int, offset: Int): [Job!]!
+    searchJobs(filters: JobSearchInput, limit: Int, offset: Int): JobSearchResult!
+    job(id: ID!): Job
     myJobPosts(limit: Int, offset: Int): [Job!]!
   }
 

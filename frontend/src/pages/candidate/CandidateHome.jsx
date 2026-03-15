@@ -16,6 +16,10 @@ import {
 	Github,
 	Code,
 	Globe,
+	Search,
+	Building2,
+	Send,
+	Clock,
 } from "lucide-react";
 import "./CandidateHome.css";
 
@@ -55,6 +59,9 @@ const CandidateHome = () => {
 	});
 	const [saving, setSaving] = useState(false);
 	const [editError, setEditError] = useState(null);
+	const [applicationCount, setApplicationCount] = useState(0);
+	const [recentApplications, setRecentApplications] = useState([]);
+	const [recentJobs, setRecentJobs] = useState([]);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "candidate")) {
@@ -68,7 +75,7 @@ const CandidateHome = () => {
 			try {
 				const data = await graphqlRequest(
 					`
-					query GetCandidateProfile {
+					query GetCandidateDashboard {
 						myCandidateProfile {
 							id
 							first_name
@@ -94,12 +101,39 @@ const CandidateHome = () => {
 								disability
 							}
 						}
+						myApplicationCount
+						myApplications(limit: 5) {
+							id
+							status
+							createdAt
+							job {
+								id
+								title
+								company_name
+								location
+							}
+						}
+						searchJobs(limit: 3) {
+							jobs {
+								id
+								title
+								description
+								company_name
+								location
+								location_type
+								employment_type
+								skills
+							}
+						}
 					}
 					`,
 					{},
 					token
 				);
 				setCandidate(data.myCandidateProfile);
+				setApplicationCount(data.myApplicationCount || 0);
+				setRecentApplications(data.myApplications || []);
+				setRecentJobs(data.searchJobs?.jobs || []);
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -293,19 +327,19 @@ const CandidateHome = () => {
 				</div>
 
 				<div className="stats-grid">
-					<div className="stat-card">
+					<div className="stat-card" onClick={() => navigate("/candidate/jobs")} style={{ cursor: "pointer" }}>
 						<div
 							className="stat-icon"
 							style={{ background: "rgba(34, 211, 238, 0.1)" }}
 						>
-							<Briefcase
+							<Search
 								size={24}
 								style={{ color: "var(--accent-cyan)" }}
 							/>
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">12</div>
-							<div className="stat-label">Applications</div>
+							<div className="stat-value">Find Jobs</div>
+							<div className="stat-label">Browse all openings</div>
 						</div>
 					</div>
 
@@ -314,14 +348,14 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(16, 185, 129, 0.1)" }}
 						>
-							<CheckCircle
+							<Send
 								size={24}
 								style={{ color: "#10b981" }}
 							/>
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">5</div>
-							<div className="stat-label">Interviews</div>
+							<div className="stat-value">{applicationCount}</div>
+							<div className="stat-label">Applications</div>
 						</div>
 					</div>
 
@@ -330,14 +364,16 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(245, 158, 11, 0.1)" }}
 						>
-							<TrendingUp
+							<Clock
 								size={24}
 								style={{ color: "#f59e0b" }}
 							/>
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">23</div>
-							<div className="stat-label">Profile Views</div>
+							<div className="stat-value">
+								{recentApplications.filter((a) => a.status === "pending").length}
+							</div>
+							<div className="stat-label">Pending</div>
 						</div>
 					</div>
 
@@ -346,63 +382,116 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(139, 92, 246, 0.1)" }}
 						>
-							<FileText size={24} style={{ color: "#8b5cf6" }} />
+							<CheckCircle size={24} style={{ color: "#8b5cf6" }} />
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">8</div>
-							<div className="stat-label">Job Matches</div>
+							<div className="stat-value">
+								{recentApplications.filter((a) => a.status === "shortlisted").length}
+							</div>
+							<div className="stat-label">Shortlisted</div>
 						</div>
 					</div>
 				</div>
 
 				<div className="dashboard-content">
 					<div className="dashboard-section">
-						<h2>Recommended Jobs</h2>
-						<div className="job-list">
-							<div className="job-card">
-								<div className="job-header">
-									<div className="job-icon">👨‍💻</div>
-									<div>
-										<h3>Senior Frontend Developer</h3>
-										<p>Tech Corp • San Francisco, CA</p>
-									</div>
-								</div>
-								<p className="job-description">
-									Looking for an experienced React developer
-									to join our team...
-								</p>
-								<div className="job-tags">
-									<span className="tag">React</span>
-									<span className="tag">TypeScript</span>
-									<span className="tag">Remote</span>
-								</div>
-								<button className="btn btn-primary btn-sm">
-									Apply Now
-								</button>
-							</div>
-
-							<div className="job-card">
-								<div className="job-header">
-									<div className="job-icon">🚀</div>
-									<div>
-										<h3>Full Stack Engineer</h3>
-										<p>Startup Inc • New York, NY</p>
-									</div>
-								</div>
-								<p className="job-description">
-									Join our fast-growing startup and help build
-									the future...
-								</p>
-								<div className="job-tags">
-									<span className="tag">Node.js</span>
-									<span className="tag">React</span>
-									<span className="tag">AWS</span>
-								</div>
-								<button className="btn btn-primary btn-sm">
-									Apply Now
-								</button>
-							</div>
+						<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+							<h2 style={{ margin: 0 }}>Latest Openings</h2>
+							<button className="btn btn-outline btn-sm" onClick={() => navigate("/candidate/jobs")}>
+								<Search size={14} />
+								Browse All Jobs
+							</button>
 						</div>
+						<div className="job-list">
+							{recentJobs.length === 0 ? (
+								<div className="job-card">
+									<div className="job-header">
+										<div className="job-icon">
+											<Briefcase size={24} />
+										</div>
+										<div>
+											<h3>No jobs available yet</h3>
+											<p>Check back soon for new openings!</p>
+										</div>
+									</div>
+								</div>
+							) : (
+								recentJobs.map((job) => (
+									<div className="job-card" key={job.id}>
+										<div className="job-header">
+											<div className="job-icon">
+												<Building2 size={22} style={{ color: "var(--accent-cyan)" }} />
+											</div>
+											<div>
+												<h3>{job.title}</h3>
+												<p>{job.company_name || "Company"} &bull; {job.location}</p>
+											</div>
+										</div>
+										<p className="job-description">
+											{job.description && job.description.length > 150
+												? `${job.description.slice(0, 147)}...`
+												: job.description}
+										</p>
+										<div className="job-tags">
+											{job.location_type && (
+												<span className="tag">
+													{job.location_type === "remote" ? "Remote" : job.location_type.charAt(0).toUpperCase() + job.location_type.slice(1)}
+												</span>
+											)}
+											{Array.isArray(job.skills) && job.skills.slice(0, 3).map((skill) => (
+												<span className="tag" key={`${job.id}-${skill}`}>{skill}</span>
+											))}
+										</div>
+										<button
+											className="btn btn-primary btn-sm"
+											onClick={() => navigate("/candidate/jobs")}
+										>
+											View & Apply
+										</button>
+									</div>
+								))
+							)}
+						</div>
+
+						{recentApplications.length > 0 && (
+							<>
+								<h2 style={{ marginTop: "2.5rem" }}>My Recent Applications</h2>
+								<div className="job-list">
+									{recentApplications.map((app) => (
+										<div className="job-card" key={app.id}>
+											<div className="job-header">
+												<div className="job-icon">
+													<FileText size={22} style={{ color: "var(--accent-cyan)" }} />
+												</div>
+												<div>
+													<h3>{app.job?.title || "Job"}</h3>
+													<p>{app.job?.company_name || "Company"} &bull; {app.job?.location || ""}</p>
+												</div>
+											</div>
+											<div className="job-tags">
+												<span className="tag" style={{
+													background: app.status === "shortlisted"
+														? "rgba(16, 185, 129, 0.15)"
+														: app.status === "rejected"
+														? "rgba(239, 68, 68, 0.15)"
+														: "rgba(245, 158, 11, 0.15)",
+													color: app.status === "shortlisted"
+														? "#10b981"
+														: app.status === "rejected"
+														? "#ef4444"
+														: "#f59e0b",
+												}}>
+													{app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+												</span>
+												<span className="tag">
+													Applied {new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+												</span>
+											</div>
+										</div>
+									))}
+								</div>
+							</>
+						)}
 					</div>
 
 					<div className="dashboard-sidebar">
@@ -425,13 +514,27 @@ const CandidateHome = () => {
 							</button>
 						</div>
 
+						<div className="profile-card card">
+							<h3>Job Search</h3>
+							<p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1rem" }}>
+								Browse all available positions and find your perfect role
+							</p>
+							<button
+								className="btn btn-primary btn-full btn-sm"
+								onClick={() => navigate("/candidate/jobs")}
+							>
+								<Search size={16} />
+								Search Jobs
+							</button>
+						</div>
+
 						<div className="tips-card card">
 							<h3>Quick Tips</h3>
 							<ul className="tips-list">
 								<li>✨ Update your skills regularly</li>
 								<li>📝 Keep your resume current</li>
-								<li>🎯 Set job alerts for your preferences</li>
-								<li>💬 Respond to messages quickly</li>
+								<li>🎯 Apply to jobs that match your skills</li>
+								<li>💬 Write a cover letter for each application</li>
 							</ul>
 						</div>
 					</div>
