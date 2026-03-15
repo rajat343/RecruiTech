@@ -140,6 +140,7 @@ def consolidation_fn(**context):
     return consolidate(
         candidate_id=inputs["candidate_id"],
         job_id=inputs["job_id"],
+        job_description=inputs["job_description"],
         github_result=github_result,
         ats_result=ats_result,
         leetcode_result=leetcode_result,

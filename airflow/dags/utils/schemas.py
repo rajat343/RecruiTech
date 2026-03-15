@@ -19,11 +19,18 @@ class AgentResult(BaseModel):
     weaknesses: list[str] = []
 
 
+class WeightProfile(BaseModel):
+    name: str  # "dsa_relevant" | "dsa_minimal" | "no_leetcode"
+    reason: str
+    weights: dict[str, float]  # {"ats": 0.40, "github": 0.35, "leetcode": 0.25}
+
+
 class ConsolidatedReport(BaseModel):
     candidate_id: str
     job_id: str
     final_score: float = Field(ge=0, le=100)
     fit_level: str  # "Strong" | "Moderate" | "Weak"
+    weight_profile: dict
     agent_results: list[dict]
     top_strengths: list[str] = []
     key_concerns: list[str] = []

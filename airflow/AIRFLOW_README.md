@@ -9,23 +9,24 @@ Local Airflow setup using Docker Compose (LocalExecutor + Postgres).
 ## Setup
 
 ```bash
-cd airflow
+# 1. Start Kafka first (Airflow depends on the kafka network)
+cd kafka
+docker compose up -d
+cd ..
 
-# Create env file from example
-cp .env.example .env
+# 2. Start Airflow
+cd airflow
+cp .env.example .env   # first time only
 # On Linux, update AIRFLOW_UID to your user ID: run `id -u`
 
-# Initialize (one-time — creates DB + admin user)
-docker compose up airflow-init
-
-# Start Airflow
+docker compose up airflow-init   # one-time — creates DB + admin user
 docker compose up -d
 ```
 
 ## Access
 
 - **Airflow UI**: http://localhost:8080 (airflow / airflow)
-- **Kafka UI**: http://localhost:8081
+- **Kafka UI**: http://localhost:8081 (runs from `kafka/` docker-compose)
 
 ## Verify
 
@@ -69,15 +70,7 @@ docker compose down --volumes --remove-orphans
    docker compose up -d
    ```
 
-3. Create the LLM pool (limits concurrent agent calls):
-   ```bash
-   docker compose exec airflow-webserver airflow pools set llm_pool 3 "LLM rate limit pool"
-   ```
-
-4. Unpause the DAG:
-   ```bash
-   docker compose exec airflow-webserver airflow dags unpause candidate_evaluation
-   ```
+The LLM pool (3 slots) and DAG unpause are handled automatically by `scripts/entrypoint.sh` on webserver startup.
 
 ### Trigger a Run
 
@@ -97,15 +90,9 @@ curl -X POST "http://localhost:8080/api/v1/dags/candidate_evaluation/dagRuns" \
   }'
 ```
 
-### Kafka Trigger (optional)
+### Kafka Trigger
 
-Run the standalone consumer to auto-trigger DAGs from Kafka:
-
-```bash
-cd scripts
-pip install kafka-python-ng requests
-python kafka_trigger.py
-```
+The `kafka-trigger` container runs automatically as part of `kafka/docker-compose.yaml`. It listens to the `candidate-evaluation-request` topic and triggers DAG runs via Airflow REST API. See `kafka/README.md` for details.
 
 ## Troubleshooting
 
