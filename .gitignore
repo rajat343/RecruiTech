@@ -39,6 +39,10 @@ out/
 coverage/
 .nyc_output/
 
+# Python
+__pycache__/
+*.pyc
+
 # Misc
 *.pem
 .cache/

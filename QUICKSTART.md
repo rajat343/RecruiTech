@@ -9,6 +9,7 @@ Before you begin, ensure you have:
 -   ✅ Node.js v20+ installed (`node --version`)
 -   ✅ MongoDB installed and running
 -   ✅ npm or yarn package manager
+-   ✅ Docker Desktop (for Kafka + Airflow pipeline)
 
 ## Quick Setup (Without OAuth)
 
@@ -129,6 +130,83 @@ npm run dev
 8. Fill in your profile details
 9. Click "Complete Profile"
 10. Welcome to your recruiter dashboard! 🚀
+
+## Candidate Evaluation Pipeline (Kafka + Airflow)
+
+The AI evaluation pipeline runs as a separate infrastructure alongside the backend.
+
+### Prerequisites
+
+- Docker Desktop installed and running
+
+### 5a. Start Kafka
+
+```bash
+cd kafka
+docker compose up -d
+```
+
+This starts:
+- **Kafka broker** — `localhost:9092`
+- **Kafka UI** — http://localhost:8081
+- **kafka-trigger** — auto-triggers Airflow DAGs from Kafka messages
+
+### 5b. Start Airflow
+
+```bash
+cd ../airflow
+cp .env.example .env   # first time only — fill in API keys
+
+# One-time init (creates DB + admin user)
+docker compose up airflow-init
+
+# Build custom image + start
+docker compose build
+docker compose up -d
+```
+
+The LLM pool and DAG unpause are handled automatically on webserver startup.
+
+### 5c. Required API Keys (in `airflow/.env`)
+
+```env
+OPENAI_API_KEY=sk-...
+GITHUB_TOKEN=ghp_...
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+MONGODB_URL=mongodb://host.docker.internal:27017/recruitech
+```
+
+### Access
+
+- **Airflow UI**: http://localhost:8080 (airflow / airflow)
+- **Kafka UI**: http://localhost:8081
+
+### How It Works
+
+```
+Backend produces → candidate-evaluation-request (Kafka topic)
+                        ↓
+              kafka-trigger container
+              triggers Airflow DAG via REST API
+                        ↓
+              Airflow DAG runs 3 agents in parallel:
+              ├── GitHub Analyzer (CrewAI)
+              ├── LeetCode Analyzer (CrewAI)
+              └── ATS Resume Scorer (OpenAI)
+                        ↓
+              Consolidation (weighted scoring + AI synthesis)
+                        ↓
+              persist_and_notify
+              ├── Writes to MongoDB (evaluations collection)
+              └── Produces → evaluation-complete (Kafka topic)
+                        ↓
+              Backend consumes ← evaluation-complete
+```
+
+See `kafka/README.md` and `airflow/AIRFLOW_README.md` for more details.
+
+---
 
 ## Enable Google OAuth (Optional)
 
@@ -283,6 +361,18 @@ npm start            # Start production server
 cd frontend
 npm run dev          # Start dev server with hot reload
 npm run build        # Build for production
+
+# Kafka
+cd kafka
+docker compose up -d       # Start Kafka + trigger
+docker compose down        # Stop Kafka
+docker compose logs -f kafka-trigger  # View trigger logs
+
+# Airflow
+cd airflow
+docker compose up -d       # Start Airflow
+docker compose down        # Stop Airflow
+docker compose logs airflow-scheduler --tail 50  # View scheduler logs
 
 # Database
 mongosh              # Open MongoDB shell
