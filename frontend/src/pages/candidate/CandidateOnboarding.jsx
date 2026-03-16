@@ -73,7 +73,7 @@ const CandidateOnboarding = () => {
 		// Work eligibility
 		work_authorized: null,
 		sponsorship_needed: null,
-		// Resume
+		// Resume (file upload handled separately; URL stored later via S3)
 		resume_url: "",
 		// Links
 		linkedin_url: "",
@@ -97,6 +97,7 @@ const CandidateOnboarding = () => {
 	const [step, setStep] = useState(1);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [resumeFile, setResumeFile] = useState(null);
 
 	const handleChange = (e) => {
 		const { name, value } = e.target;
@@ -115,7 +116,6 @@ const CandidateOnboarding = () => {
 				!formData.first_name ||
 				!formData.last_name ||
 				!formData.email ||
-				!formData.resume_url ||
 				!formData.location_country ||
 				(needsState && !formData.location_state) ||
 				!formData.location_city
@@ -129,10 +129,6 @@ const CandidateOnboarding = () => {
 			}
 			if (!isValidPhone(formData.phone_number)) {
 				setError("Please enter a valid phone number.");
-				return;
-			}
-			if (!isValidUrl(formData.resume_url)) {
-				setError("Please enter a valid resume URL.");
 				return;
 			}
 		}
@@ -226,8 +222,7 @@ const CandidateOnboarding = () => {
 		if (
 			!formData.first_name ||
 			!formData.last_name ||
-			!formData.email ||
-			!formData.resume_url
+			!formData.email
 		) {
 			setError("Please complete the required core information.");
 			setStep(1);
@@ -311,7 +306,7 @@ const CandidateOnboarding = () => {
 						leetcode_url: formData.leetcode_url || null,
 						portfolio_url: formData.portfolio_url || null,
 						// Professional summary
-						resume_url: formData.resume_url,
+						resume_url: null,
 						skills: skillsArray.length ? skillsArray : null,
 						profile_summary: formData.profile_summary || null,
 						// Detailed experience & education
@@ -645,23 +640,27 @@ const CandidateOnboarding = () => {
 									</div>
 
 									<div className="form-group">
-										<label htmlFor="resume_url">
+										<label htmlFor="resume_file">
 											<FileText size={18} />
-											Resume URL *
+											Upload Resume *
 										</label>
 										<input
-											type="url"
-											id="resume_url"
-											name="resume_url"
+											type="file"
+											id="resume_file"
+											name="resume_file"
 											className="input-field"
-											placeholder="https://drive.google.com/..."
-											value={formData.resume_url}
-											onChange={handleChange}
+											accept=".pdf,.doc,.docx"
+											onChange={(e) =>
+												setResumeFile(
+													e.target.files && e.target.files[0]
+														? e.target.files[0]
+														: null
+												)
+											}
 											required
 										/>
 										<small className="field-hint">
-											Upload your resume to Google Drive
-											or Dropbox and paste the link.
+											Upload your resume as a PDF or Word document.
 										</small>
 									</div>
 								</>
