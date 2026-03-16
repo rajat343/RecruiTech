@@ -46,8 +46,24 @@ const searchJobs = async (filters = {}, { limit = 20, offset = 0 }) => {
   const query = { is_deleted: false, is_active: true };
 
   if (filters.search) {
-    const regex = new RegExp(filters.search, "i");
-    query.$or = [{ title: regex }, { description: regex }, { location: regex }];
+    const tokens = filters.search
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (tokens.length > 0) {
+      // Require ALL tokens to be present in either title, description, or location
+      query.$and = tokens.map((token) => {
+        const regex = new RegExp(token, "i");
+        return {
+          $or: [
+            { title: regex },
+            { description: regex },
+            { location: regex },
+          ],
+        };
+      });
+    }
   }
 
   if (filters.employment_type) {

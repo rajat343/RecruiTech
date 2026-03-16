@@ -113,7 +113,7 @@ const CandidateHome = () => {
 								location
 							}
 						}
-						searchJobs(limit: 3) {
+						searchJobs(limit: 5) {
 							jobs {
 								id
 								title
@@ -128,12 +128,17 @@ const CandidateHome = () => {
 					}
 					`,
 					{},
-					token
+					token,
 				);
 				setCandidate(data.myCandidateProfile);
 				setApplicationCount(data.myApplicationCount || 0);
-				setRecentApplications(data.myApplications || []);
-				setRecentJobs(data.searchJobs?.jobs || []);
+				const apps = data.myApplications || [];
+				setRecentApplications(apps);
+				const appliedJobIds = new Set(
+					apps.map((a) => a.job?.id).filter(Boolean),
+				);
+				const allJobs = data.searchJobs?.jobs || [];
+				setRecentJobs(allJobs.filter((j) => !appliedJobIds.has(j.id)));
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -187,7 +192,7 @@ const CandidateHome = () => {
 			github_url: candidate.github_url || "",
 			leetcode_url: candidate.leetcode_url || "",
 			portfolio_url: candidate.portfolio_url || "",
-							skills: Array.isArray(candidate.skills)
+			skills: Array.isArray(candidate.skills)
 				? candidate.skills.join(", ")
 				: "",
 			profile_summary: candidate.profile_summary || "",
@@ -195,8 +200,7 @@ const CandidateHome = () => {
 			demographics_race_ethnicity:
 				candidate.demographics?.race_ethnicity || "",
 			demographics_gender: candidate.demographics?.gender || "",
-			demographics_disability:
-				candidate.demographics?.disability || "",
+			demographics_disability: candidate.demographics?.disability || "",
 		});
 		setShowEditModal(true);
 		setEditError(null);
@@ -269,8 +273,7 @@ const CandidateHome = () => {
 									.map((s) => s.trim())
 									.filter(Boolean)
 							: null,
-						profile_summary:
-							profileForm.profile_summary || null,
+						profile_summary: profileForm.profile_summary || null,
 						// Status & demographics
 						status: profileForm.status,
 						demographics: {
@@ -282,7 +285,7 @@ const CandidateHome = () => {
 						},
 					},
 				},
-				token
+				token,
 			);
 
 			// Update local state
@@ -327,7 +330,11 @@ const CandidateHome = () => {
 				</div>
 
 				<div className="stats-grid">
-					<div className="stat-card" onClick={() => navigate("/candidate/jobs")} style={{ cursor: "pointer" }}>
+					<div
+						className="stat-card"
+						onClick={() => navigate("/candidate/jobs")}
+						style={{ cursor: "pointer" }}
+					>
 						<div
 							className="stat-icon"
 							style={{ background: "rgba(34, 211, 238, 0.1)" }}
@@ -339,7 +346,9 @@ const CandidateHome = () => {
 						</div>
 						<div className="stat-content">
 							<div className="stat-value">Find Jobs</div>
-							<div className="stat-label">Browse all openings</div>
+							<div className="stat-label">
+								Browse all openings
+							</div>
 						</div>
 					</div>
 
@@ -348,10 +357,7 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(16, 185, 129, 0.1)" }}
 						>
-							<Send
-								size={24}
-								style={{ color: "#10b981" }}
-							/>
+							<Send size={24} style={{ color: "#10b981" }} />
 						</div>
 						<div className="stat-content">
 							<div className="stat-value">{applicationCount}</div>
@@ -364,14 +370,15 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(245, 158, 11, 0.1)" }}
 						>
-							<Clock
-								size={24}
-								style={{ color: "#f59e0b" }}
-							/>
+							<Clock size={24} style={{ color: "#f59e0b" }} />
 						</div>
 						<div className="stat-content">
 							<div className="stat-value">
-								{recentApplications.filter((a) => a.status === "pending").length}
+								{
+									recentApplications.filter(
+										(a) => a.status === "pending",
+									).length
+								}
 							</div>
 							<div className="stat-label">Pending</div>
 						</div>
@@ -382,11 +389,18 @@ const CandidateHome = () => {
 							className="stat-icon"
 							style={{ background: "rgba(139, 92, 246, 0.1)" }}
 						>
-							<CheckCircle size={24} style={{ color: "#8b5cf6" }} />
+							<CheckCircle
+								size={24}
+								style={{ color: "#8b5cf6" }}
+							/>
 						</div>
 						<div className="stat-content">
 							<div className="stat-value">
-								{recentApplications.filter((a) => a.status === "shortlisted").length}
+								{
+									recentApplications.filter(
+										(a) => a.status === "shortlisted",
+									).length
+								}
 							</div>
 							<div className="stat-label">Shortlisted</div>
 						</div>
@@ -395,9 +409,19 @@ const CandidateHome = () => {
 
 				<div className="dashboard-content">
 					<div className="dashboard-section">
-						<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+						<div
+							style={{
+								display: "flex",
+								justifyContent: "space-between",
+								alignItems: "center",
+								marginBottom: "1.5rem",
+							}}
+						>
 							<h2 style={{ margin: 0 }}>Latest Openings</h2>
-							<button className="btn btn-outline btn-sm" onClick={() => navigate("/candidate/jobs")}>
+							<button
+								className="btn btn-outline btn-sm"
+								onClick={() => navigate("/candidate/jobs")}
+							>
 								<Search size={14} />
 								Browse All Jobs
 							</button>
@@ -411,7 +435,10 @@ const CandidateHome = () => {
 										</div>
 										<div>
 											<h3>No jobs available yet</h3>
-											<p>Check back soon for new openings!</p>
+											<p>
+												Check back soon for new
+												openings!
+											</p>
 										</div>
 									</div>
 								</div>
@@ -420,31 +447,59 @@ const CandidateHome = () => {
 									<div className="job-card" key={job.id}>
 										<div className="job-header">
 											<div className="job-icon">
-												<Building2 size={22} style={{ color: "var(--accent-cyan)" }} />
+												<Building2
+													size={22}
+													style={{
+														color: "var(--accent-cyan)",
+													}}
+												/>
 											</div>
 											<div>
 												<h3>{job.title}</h3>
-												<p>{job.company_name || "Company"} &bull; {job.location}</p>
+												<p>
+													{job.company_name ||
+														"Company"}{" "}
+													&bull; {job.location}
+												</p>
 											</div>
 										</div>
 										<p className="job-description">
-											{job.description && job.description.length > 150
+											{job.description &&
+											job.description.length > 150
 												? `${job.description.slice(0, 147)}...`
 												: job.description}
 										</p>
 										<div className="job-tags">
 											{job.location_type && (
 												<span className="tag">
-													{job.location_type === "remote" ? "Remote" : job.location_type.charAt(0).toUpperCase() + job.location_type.slice(1)}
+													{job.location_type ===
+													"remote"
+														? "Remote"
+														: job.location_type
+																.charAt(0)
+																.toUpperCase() +
+															job.location_type.slice(
+																1,
+															)}
 												</span>
 											)}
-											{Array.isArray(job.skills) && job.skills.slice(0, 3).map((skill) => (
-												<span className="tag" key={`${job.id}-${skill}`}>{skill}</span>
-											))}
+											{Array.isArray(job.skills) &&
+												job.skills
+													.slice(0, 3)
+													.map((skill) => (
+														<span
+															className="tag"
+															key={`${job.id}-${skill}`}
+														>
+															{skill}
+														</span>
+													))}
 										</div>
 										<button
 											className="btn btn-primary btn-sm"
-											onClick={() => navigate("/candidate/jobs")}
+											onClick={() =>
+												navigate("/candidate/jobs")
+											}
 										>
 											View & Apply
 										</button>
@@ -455,36 +510,74 @@ const CandidateHome = () => {
 
 						{recentApplications.length > 0 && (
 							<>
-								<h2 style={{ marginTop: "2.5rem" }}>My Recent Applications</h2>
+								<h2 style={{ marginTop: "2.5rem" }}>
+									My Recent Applications
+								</h2>
 								<div className="job-list">
 									{recentApplications.map((app) => (
 										<div className="job-card" key={app.id}>
 											<div className="job-header">
 												<div className="job-icon">
-													<FileText size={22} style={{ color: "var(--accent-cyan)" }} />
+													<FileText
+														size={22}
+														style={{
+															color: "var(--accent-cyan)",
+														}}
+													/>
 												</div>
 												<div>
-													<h3>{app.job?.title || "Job"}</h3>
-													<p>{app.job?.company_name || "Company"} &bull; {app.job?.location || ""}</p>
+													<h3>
+														{app.job?.title ||
+															"Job"}
+													</h3>
+													<p>
+														{app.job
+															?.company_name ||
+															"Company"}{" "}
+														&bull;{" "}
+														{app.job?.location ||
+															""}
+													</p>
 												</div>
 											</div>
 											<div className="job-tags">
-												<span className="tag" style={{
-													background: app.status === "shortlisted"
-														? "rgba(16, 185, 129, 0.15)"
-														: app.status === "rejected"
-														? "rgba(239, 68, 68, 0.15)"
-														: "rgba(245, 158, 11, 0.15)",
-													color: app.status === "shortlisted"
-														? "#10b981"
-														: app.status === "rejected"
-														? "#ef4444"
-														: "#f59e0b",
-												}}>
-													{app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+												<span
+													className="tag"
+													style={{
+														background:
+															app.status ===
+															"shortlisted"
+																? "rgba(16, 185, 129, 0.15)"
+																: app.status ===
+																	  "rejected"
+																	? "rgba(239, 68, 68, 0.15)"
+																	: "rgba(245, 158, 11, 0.15)",
+														color:
+															app.status ===
+															"shortlisted"
+																? "#10b981"
+																: app.status ===
+																	  "rejected"
+																	? "#ef4444"
+																	: "#f59e0b",
+													}}
+												>
+													{app.status
+														.charAt(0)
+														.toUpperCase() +
+														app.status.slice(1)}
 												</span>
 												<span className="tag">
-													Applied {new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+													Applied{" "}
+													{new Date(
+														app.createdAt,
+													).toLocaleDateString(
+														undefined,
+														{
+															month: "short",
+															day: "numeric",
+														},
+													)}
 												</span>
 											</div>
 										</div>
@@ -516,8 +609,15 @@ const CandidateHome = () => {
 
 						<div className="profile-card card">
 							<h3>Job Search</h3>
-							<p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1rem" }}>
-								Browse all available positions and find your perfect role
+							<p
+								style={{
+									color: "var(--text-secondary)",
+									fontSize: "0.875rem",
+									marginBottom: "1rem",
+								}}
+							>
+								Browse all available positions and find your
+								perfect role
 							</p>
 							<button
 								className="btn btn-primary btn-full btn-sm"
@@ -534,7 +634,9 @@ const CandidateHome = () => {
 								<li>✨ Update your skills regularly</li>
 								<li>📝 Keep your resume current</li>
 								<li>🎯 Apply to jobs that match your skills</li>
-								<li>💬 Write a cover letter for each application</li>
+								<li>
+									💬 Write a cover letter for each application
+								</li>
 							</ul>
 						</div>
 					</div>
@@ -720,13 +822,12 @@ const CandidateHome = () => {
 													onClick={() =>
 														setProfileForm({
 															...profileForm,
-															work_authorized:
-																true,
+															work_authorized: true,
 														})
 													}
 												>
-													Yes, I am authorized to
-													work without restrictions
+													Yes, I am authorized to work
+													without restrictions
 												</button>
 												<button
 													type="button"
@@ -739,8 +840,7 @@ const CandidateHome = () => {
 													onClick={() =>
 														setProfileForm({
 															...profileForm,
-															work_authorized:
-																false,
+															work_authorized: false,
 														})
 													}
 												>
@@ -768,13 +868,11 @@ const CandidateHome = () => {
 													onClick={() =>
 														setProfileForm({
 															...profileForm,
-															sponsorship_needed:
-																true,
+															sponsorship_needed: true,
 														})
 													}
 												>
-													Yes, I will need
-													sponsorship
+													Yes, I will need sponsorship
 												</button>
 												<button
 													type="button"
@@ -787,8 +885,7 @@ const CandidateHome = () => {
 													onClick={() =>
 														setProfileForm({
 															...profileForm,
-															sponsorship_needed:
-																false,
+															sponsorship_needed: false,
 														})
 													}
 												>
