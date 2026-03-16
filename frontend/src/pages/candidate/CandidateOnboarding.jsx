@@ -232,6 +232,27 @@ const CandidateOnboarding = () => {
 		setLoading(true);
 
 		try {
+			// 1) Upload resume file to backend (S3)
+			let resumeUrl = null;
+			if (resumeFile) {
+				const apiUrl =
+					import.meta.env.VITE_API_URL || "http://localhost:4000";
+				const formDataPayload = new FormData();
+				formDataPayload.append("file", resumeFile);
+
+				const uploadResponse = await axios.post(
+					`${apiUrl}/upload/resume`,
+					formDataPayload,
+					{
+						headers: {
+							Authorization: token ? `Bearer ${token}` : undefined,
+						},
+					}
+				);
+
+				resumeUrl = uploadResponse.data?.url || null;
+			}
+
 			const skillsArray = formData.skills
 				? formData.skills
 						.split(",")
@@ -306,7 +327,7 @@ const CandidateOnboarding = () => {
 						leetcode_url: formData.leetcode_url || null,
 						portfolio_url: formData.portfolio_url || null,
 						// Professional summary
-						resume_url: null,
+						resume_url: resumeUrl,
 						skills: skillsArray.length ? skillsArray : null,
 						profile_summary: formData.profile_summary || null,
 						// Detailed experience & education
