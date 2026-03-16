@@ -38,8 +38,31 @@ const requireAdmin = (context) => {
 	return user;
 };
 
+/**
+ * Express middleware: verify JWT from Authorization header and set req.user.
+ * Use for REST routes (e.g. /upload/resume). Sends 401 if missing or invalid token.
+ */
+const requireAuthExpress = async (req, res, next) => {
+	try {
+		const token = extractTokenFromHeader(req.headers.authorization);
+		if (!token) {
+			return res.status(401).json({ error: "Authentication required" });
+		}
+		const decoded = verifyToken(token);
+		const user = await User.findById(decoded.id).select("-password");
+		if (!user || user.is_deleted) {
+			return res.status(401).json({ error: "Authentication required" });
+		}
+		req.user = user;
+		next();
+	} catch (err) {
+		return res.status(401).json({ error: "Authentication required" });
+	}
+};
+
 module.exports = {
 	createContext,
 	requireAuth,
 	requireAdmin,
+	requireAuthExpress,
 };

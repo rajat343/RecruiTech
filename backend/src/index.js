@@ -8,6 +8,7 @@ const session = require("express-session");
 const connectDatabase = require("./config/database");
 const { createContext } = require("./middleware/auth");
 const authRoutes = require("./routes/auth.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 // Import type definitions
 const userTypeDefs = require("./features/user/typeDefs");
@@ -75,6 +76,9 @@ app.use(
 
 // OAuth routes
 app.use("/auth", authRoutes);
+
+// Upload routes (e.g. resume uploads)
+app.use("/upload", uploadRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
