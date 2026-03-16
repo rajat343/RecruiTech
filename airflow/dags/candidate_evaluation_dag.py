@@ -78,25 +78,14 @@ def extract_inputs_fn(**context):
 
 
 def github_agent_fn(**context):
-    """Run GitHub analysis agent."""
+    """Run GitHub analysis agent. Returns None if no URL."""
     from agents.github_agent import run_github_agent
 
     ti = context["ti"]
     inputs = ti.xcom_pull(task_ids="extract_inputs")
 
-    github_url = inputs.get("github_url")
-    if not github_url:
-        logger.info("No GitHub URL provided. Returning default result.")
-        return {
-            "agent_name": "github_analyzer",
-            "category_scores": [],
-            "overall_score": 0,
-            "strengths": [],
-            "weaknesses": ["No GitHub profile provided"],
-        }
-
     return run_github_agent(
-        github_url=github_url,
+        github_url=inputs.get("github_url"),
         job_description=inputs["job_description"],
     )
 
@@ -197,7 +186,8 @@ def persist_and_notify_fn(**context):
         producer.close()
         logger.info(f"Published to {KAFKA_EVALUATION_COMPLETE_TOPIC}")
     except Exception as e:
-        logger.error(f"Failed to publish to Kafka (non-fatal): {e}")
+        logger.error(f"Failed to publish to Kafka: {e}")
+        raise
 
 
 # ---------------------------------------------------------------------------
