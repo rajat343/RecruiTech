@@ -12,20 +12,27 @@ from utils.schemas import AgentResult, ConsolidatedReport, WeightProfile
 
 logger = logging.getLogger(__name__)
 
-# Weight profiles
-WEIGHTS_NO_LEETCODE = {
-    "ats_scorer": 0.55,
-    "github_analyzer": 0.45,
-}
-WEIGHTS_DSA_RELEVANT = {
+# Weight profiles — all combinations of available agents
+WEIGHTS_ALL_DSA_RELEVANT = {
     "ats_scorer": 0.40,
     "github_analyzer": 0.35,
     "leetcode_analyzer": 0.25,
 }
-WEIGHTS_DSA_MINIMAL = {
+WEIGHTS_ALL_DSA_MINIMAL = {
     "ats_scorer": 0.45,
     "github_analyzer": 0.45,
     "leetcode_analyzer": 0.10,
+}
+WEIGHTS_NO_LEETCODE = {
+    "ats_scorer": 0.55,
+    "github_analyzer": 0.45,
+}
+WEIGHTS_NO_GITHUB = {
+    "ats_scorer": 0.70,
+    "leetcode_analyzer": 0.30,
+}
+WEIGHTS_ATS_ONLY = {
+    "ats_scorer": 1.00,
 }
 
 # Keywords that signal DSA-heavy roles
@@ -51,9 +58,27 @@ DSA_KEYWORDS = [
 
 
 def _determine_weight_profile(
-    job_description: str, has_leetcode: bool
+    job_description: str, has_github: bool, has_leetcode: bool
 ) -> WeightProfile:
-    """Determine weight profile based on LeetCode availability and JD keywords."""
+    """Determine weight profile based on available agents and JD keywords."""
+    jd_lower = job_description.lower()
+    matched_keywords = [kw for kw in DSA_KEYWORDS if kw in jd_lower]
+    is_dsa = bool(matched_keywords)
+
+    if not has_github and not has_leetcode:
+        return WeightProfile(
+            name="ats_only",
+            reason="No GitHub or LeetCode profiles provided",
+            weights={"ats": 1.00},
+        )
+
+    if not has_github:
+        return WeightProfile(
+            name="no_github",
+            reason="No GitHub profile provided",
+            weights={"ats": 0.70, "leetcode": 0.30},
+        )
+
     if not has_leetcode:
         return WeightProfile(
             name="no_leetcode",
@@ -61,10 +86,8 @@ def _determine_weight_profile(
             weights={"ats": 0.55, "github": 0.45},
         )
 
-    jd_lower = job_description.lower()
-    matched_keywords = [kw for kw in DSA_KEYWORDS if kw in jd_lower]
-
-    if matched_keywords:
+    # All three agents available
+    if is_dsa:
         return WeightProfile(
             name="dsa_relevant",
             reason=f"JD contains: {', '.join(matched_keywords[:5])}",
@@ -80,19 +103,21 @@ def _determine_weight_profile(
 
 def _get_agent_weights(profile: WeightProfile) -> dict[str, float]:
     """Map weight profile to agent_name → weight dict."""
-    if profile.name == "no_leetcode":
-        return WEIGHTS_NO_LEETCODE
-    elif profile.name == "dsa_relevant":
-        return WEIGHTS_DSA_RELEVANT
-    else:
-        return WEIGHTS_DSA_MINIMAL
+    mapping = {
+        "ats_only": WEIGHTS_ATS_ONLY,
+        "no_github": WEIGHTS_NO_GITHUB,
+        "no_leetcode": WEIGHTS_NO_LEETCODE,
+        "dsa_relevant": WEIGHTS_ALL_DSA_RELEVANT,
+        "dsa_minimal": WEIGHTS_ALL_DSA_MINIMAL,
+    }
+    return mapping.get(profile.name, WEIGHTS_ALL_DSA_MINIMAL)
 
 
 def consolidate(
     candidate_id: str,
     job_id: str,
     job_description: str,
-    github_result: dict,
+    github_result: dict | None,
     ats_result: dict,
     leetcode_result: dict | None,
 ) -> dict:
@@ -102,11 +127,14 @@ def consolidate(
     Step 2: CrewAI qualitative synthesis (best-effort, degrades gracefully).
     """
     # --- Step 1: Mechanical scoring ---
+    has_github = github_result is not None
     has_leetcode = leetcode_result is not None
-    weight_profile = _determine_weight_profile(job_description, has_leetcode)
+    weight_profile = _determine_weight_profile(job_description, has_github, has_leetcode)
     weights = _get_agent_weights(weight_profile)
 
-    agent_results = [AgentResult(**ats_result), AgentResult(**github_result)]
+    agent_results = [AgentResult(**ats_result)]
+    if has_github:
+        agent_results.append(AgentResult(**github_result))
     if has_leetcode:
         agent_results.append(AgentResult(**leetcode_result))
 
@@ -190,7 +218,23 @@ def _run_synthesis_agent(
 
     # Build weight-aware instructions
     weight_instructions = ""
-    if weight_profile.name == "dsa_minimal":
+    if weight_profile.name == "ats_only":
+        weight_instructions = (
+            "Only resume/ATS data was available (no GitHub or LeetCode). "
+            "Do not mention GitHub or LeetCode gaps as concerns. "
+            "Focus entirely on resume findings against the job description."
+        )
+    elif weight_profile.name == "no_github":
+        weight_instructions = (
+            "No GitHub data was available. Do not mention GitHub gaps as a concern. "
+            "Focus on resume and LeetCode findings."
+        )
+    elif weight_profile.name == "no_leetcode":
+        weight_instructions = (
+            "No LeetCode data was available. Do not mention LeetCode gaps as a concern. "
+            "Focus entirely on resume and GitHub findings."
+        )
+    elif weight_profile.name == "dsa_minimal":
         weight_instructions = (
             "IMPORTANT: LeetCode is weighted at only 10% for this role because the JD "
             "does not emphasize algorithms/DSA. Do NOT flag weak LeetCode performance as "
@@ -202,11 +246,6 @@ def _run_synthesis_agent(
             "LeetCode is weighted at 25% because the JD emphasizes algorithms/DSA. "
             "LeetCode performance is relevant — include algorithmic skill gaps in concerns "
             "and suggest DSA interview topics where appropriate."
-        )
-    elif weight_profile.name == "no_leetcode":
-        weight_instructions = (
-            "No LeetCode data was available. Do not mention LeetCode gaps as a concern. "
-            "Focus entirely on resume and GitHub findings."
         )
 
     recruiter_agent = Agent(

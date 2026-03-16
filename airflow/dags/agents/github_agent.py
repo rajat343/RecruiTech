@@ -11,11 +11,15 @@ from utils.schemas import AgentResult, CategoryScore
 logger = logging.getLogger(__name__)
 
 
-def run_github_agent(github_url: str, job_description: str) -> dict:
+def run_github_agent(github_url: str | None, job_description: str) -> dict | None:
     """
     Analyze a GitHub profile against a job description.
-    Returns AgentResult dict with standardized scores.
+    Returns AgentResult dict or None if no URL provided.
     """
+    if not github_url:
+        logger.info("No GitHub URL provided. Skipping GitHub analysis.")
+        return None
+
     username = github_url.rstrip("/").split("/")[-1]
     github_tool = GitHubGraphQLTool()
 

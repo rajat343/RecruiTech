@@ -78,6 +78,11 @@ def main():
         auto_offset_reset="earliest",
         value_deserializer=lambda m: json.loads(m.decode("utf-8")) if m else None,
         enable_auto_commit=True,
+        session_timeout_ms=30000,
+        heartbeat_interval_ms=10000,
+        reconnect_backoff_ms=1000,
+        reconnect_backoff_max_ms=30000,
+        request_timeout_ms=40000,
     )
     logger.info("Listening for candidate evaluation requests...")
 

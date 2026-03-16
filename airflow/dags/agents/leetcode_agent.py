@@ -86,15 +86,8 @@ def run_leetcode_agent(leetcode_url: str, job_description: str) -> dict | None:
     try:
         parsed = _parse_json(raw_output)
     except Exception as e:
-        logger.warning(f"Failed to parse LeetCode CrewAI output: {e}")
-        parsed = {
-            "problem_solving_score": 50,
-            "consistency_score": 50,
-            "difficulty_distribution_score": 50,
-            "overall_score": 50,
-            "strengths": ["LeetCode profile found but detailed parsing failed"],
-            "weaknesses": [],
-        }
+        logger.warning(f"Failed to parse LeetCode CrewAI output as JSON, using fallback: {e}")
+        parsed = _fallback_parse(raw_output)
 
     agent_result = AgentResult(
         agent_name="leetcode_analyzer",
@@ -140,3 +133,38 @@ def _parse_json(raw: str) -> dict:
     if match:
         return json.loads(match.group())
     return json.loads(raw)
+
+
+def _fallback_parse(raw: str) -> dict:
+    """If JSON parsing fails, use OpenAI to extract structured scores."""
+    from openai import OpenAI
+    from utils.config import OPENAI_API_KEY, OPENAI_MODEL
+
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "Extract scores from the analysis. Return ONLY valid JSON, no other text."},
+                {"role": "user", "content": (
+                    f"Extract structured scores from this LeetCode analysis:\n\n{raw[:3000]}\n\n"
+                    "Return JSON: {\"problem_solving_score\": 0-100, \"problem_solving_evidence\": [], "
+                    "\"consistency_score\": 0-100, \"consistency_evidence\": [], "
+                    "\"difficulty_distribution_score\": 0-100, \"difficulty_distribution_evidence\": [], "
+                    "\"overall_score\": 0-100, \"strengths\": [], \"weaknesses\": []}"
+                )},
+            ],
+            max_tokens=512,
+            temperature=0.1,
+        )
+        return json.loads(response.choices[0].message.content.strip())
+    except Exception as e:
+        logger.error(f"Fallback parse also failed: {e}")
+        return {
+            "problem_solving_score": 50,
+            "consistency_score": 50,
+            "difficulty_distribution_score": 50,
+            "overall_score": 50,
+            "strengths": ["Unable to parse detailed analysis"],
+            "weaknesses": ["Analysis parsing failed — manual review recommended"],
+        }
