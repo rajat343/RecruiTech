@@ -8,6 +8,7 @@ const session = require("express-session");
 const connectDatabase = require("./config/database");
 const { createContext } = require("./middleware/auth");
 const authRoutes = require("./routes/auth.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 // Import type definitions
 const userTypeDefs = require("./features/user/typeDefs");
@@ -15,6 +16,7 @@ const candidateTypeDefs = require("./features/candidate/typeDefs");
 const recruiterTypeDefs = require("./features/recruiter/typeDefs");
 const companyTypeDefs = require("./features/company/typeDefs");
 const jobTypeDefs = require("./features/job/typeDefs");
+const applicationTypeDefs = require("./features/application/typeDefs");
 
 // Import resolvers
 const userResolvers = require("./features/user/resolvers");
@@ -22,6 +24,7 @@ const candidateResolvers = require("./features/candidate/resolvers");
 const recruiterResolvers = require("./features/recruiter/resolvers");
 const companyResolvers = require("./features/company/resolvers");
 const jobResolvers = require("./features/job/resolvers");
+const applicationResolvers = require("./features/application/resolvers");
 
 // Initialize Express app
 const app = express();
@@ -74,6 +77,9 @@ app.use(
 // OAuth routes
 app.use("/auth", authRoutes);
 
+// Upload routes (e.g. resume uploads)
+app.use("/upload", uploadRoutes);
+
 // Health check endpoint
 app.get("/health", (req, res) => {
 	res.status(200).json({
@@ -91,6 +97,7 @@ const server = new ApolloServer({
 		recruiterTypeDefs,
 		companyTypeDefs,
 		jobTypeDefs,
+		applicationTypeDefs,
 	],
 	resolvers: [
 		userResolvers,
@@ -98,6 +105,7 @@ const server = new ApolloServer({
 		recruiterResolvers,
 		companyResolvers,
 		jobResolvers,
+		applicationResolvers,
 	],
 	context: createContext,
 	formatError: (error) => {

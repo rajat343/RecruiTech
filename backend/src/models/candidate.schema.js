@@ -24,7 +24,8 @@ const candidateSchema = new mongoose.Schema(
 			trim: true,
 		},
 		phone_number: { type: String },
-		resume_url: { type: String, required: true, trim: true },
+		// Resume URL is now optional; actual file will be stored separately (e.g. S3)
+		resume_url: { type: String, trim: true },
 		// Location
 		location_city: { type: String, trim: true },
 		location_state: { type: String, trim: true },

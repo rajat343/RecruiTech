@@ -12,6 +12,12 @@ import {
 	X,
 	User,
 	Building2,
+	FileText,
+	ChevronLeft,
+	CheckCircle,
+	XCircle,
+	Star,
+	ExternalLink,
 } from "lucide-react";
 import "../candidate/CandidateHome.css";
 
@@ -66,6 +72,12 @@ const RecruiterHome = () => {
 	});
 	const [jobSaving, setJobSaving] = useState(false);
 	const [jobError, setJobError] = useState(null);
+	const [showApplicantsModal, setShowApplicantsModal] = useState(false);
+	const [applicantsJob, setApplicantsJob] = useState(null);
+	const [applicants, setApplicants] = useState([]);
+	const [applicantsLoading, setApplicantsLoading] = useState(false);
+	const [totalApplicants, setTotalApplicants] = useState(0);
+	const [statusUpdating, setStatusUpdating] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -105,6 +117,7 @@ const RecruiterHome = () => {
 							salary_currency
 							skills
 							is_active
+							application_count
 							createdAt
 						}
 					}
@@ -120,7 +133,10 @@ const RecruiterHome = () => {
 				);
 				setHasCreatedCompanies(createdCompanies.length > 0);
 
-				setJobs(data.myJobPosts || []);
+				const jobsList = data.myJobPosts || [];
+				setJobs(jobsList);
+				const total = jobsList.reduce((sum, j) => sum + (j.application_count || 0), 0);
+				setTotalApplicants(total);
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -408,6 +424,82 @@ const RecruiterHome = () => {
 		}
 	};
 
+	const handleViewApplicants = async (job) => {
+		setApplicantsJob(job);
+		setShowApplicantsModal(true);
+		setApplicantsLoading(true);
+		setApplicants([]);
+
+		try {
+			const data = await graphqlRequest(
+				`
+				query GetApplicants($job_id: ID!) {
+					applicationsForJob(job_id: $job_id, limit: 50) {
+						id
+						status
+						cover_letter
+						resume_url
+						createdAt
+						candidate {
+							id
+							first_name
+							last_name
+							email
+							phone_number
+							skills
+							linkedin_url
+							github_url
+							portfolio_url
+							profile_summary
+							location_city
+							location_state
+						}
+					}
+				}
+				`,
+				{ job_id: job.id },
+				token
+			);
+			setApplicants(data.applicationsForJob || []);
+		} catch (err) {
+			console.error("Error fetching applicants:", err);
+		} finally {
+			setApplicantsLoading(false);
+		}
+	};
+
+	const handleUpdateStatus = async (applicationId, newStatus) => {
+		setStatusUpdating(applicationId);
+		try {
+			await graphqlRequest(
+				`
+				mutation UpdateAppStatus($id: ID!, $status: ApplicationStatus!) {
+					updateApplicationStatus(id: $id, status: $status) {
+						id
+						status
+					}
+				}
+				`,
+				{ id: applicationId, status: newStatus },
+				token
+			);
+			setApplicants((prev) =>
+				prev.map((a) =>
+					a.id === applicationId ? { ...a, status: newStatus } : a
+				)
+			);
+		} catch (err) {
+			console.error("Error updating status:", err);
+		} finally {
+			setStatusUpdating(null);
+		}
+	};
+
+	const handleCloseApplicantsModal = () => {
+		setShowApplicantsModal(false);
+		setApplicantsJob(null);
+	};
+
 	return (
 		<div className="dashboard-page">
 			<div className="container">
@@ -456,7 +548,7 @@ const RecruiterHome = () => {
 							<Users size={24} style={{ color: "#10b981" }} />
 						</div>
 						<div className="stat-content">
-							<div className="stat-value">127</div>
+							<div className="stat-value">{totalApplicants}</div>
 							<div className="stat-label">Total Applicants</div>
 						</div>
 					</div>
@@ -609,11 +701,12 @@ const RecruiterHome = () => {
 												Posted{" "}
 												{formatDate(job.createdAt)}
 											</span>
-											<button className="btn btn-outline btn-sm">
-												View Applicants
-											</button>
-											<button className="btn btn-primary btn-sm">
-												Edit Job
+											<button
+												className="btn btn-outline btn-sm"
+												onClick={() => handleViewApplicants(job)}
+											>
+												<Users size={14} />
+												Applicants ({job.application_count || 0})
 											</button>
 										</div>
 									</div>
@@ -1235,6 +1328,167 @@ const RecruiterHome = () => {
 											</button>
 										</div>
 									</form>
+								)}
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Applicants Modal */}
+				{showApplicantsModal && applicantsJob && (
+					<div className="modal-overlay" onClick={handleCloseApplicantsModal}>
+						<div
+							className="modal-content modal-large"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className="modal-header">
+								<h2>Applicants for {applicantsJob.title}</h2>
+								<button
+									className="modal-close"
+									onClick={handleCloseApplicantsModal}
+								>
+									<X size={24} />
+								</button>
+							</div>
+							<div className="modal-body">
+								{applicantsLoading ? (
+									<div className="loading-spinner" style={{ minHeight: "200px" }}>
+										<div className="spinner"></div>
+										<p>Loading applicants...</p>
+									</div>
+								) : applicants.length === 0 ? (
+									<div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)" }}>
+										<Users size={48} style={{ opacity: 0.4, marginBottom: "1rem" }} />
+										<h3 style={{ color: "var(--text-primary)" }}>No applicants yet</h3>
+										<p>Applicants will appear here once candidates apply to this job.</p>
+									</div>
+								) : (
+									<div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+										{applicants.map((app) => (
+											<div
+												key={app.id}
+												style={{
+													background: "var(--bg-dark)",
+													border: "1px solid var(--border)",
+													borderRadius: "0.75rem",
+													padding: "1.25rem",
+												}}
+											>
+												<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
+													<div>
+														<h3 style={{ margin: "0 0 0.25rem 0", color: "var(--text-primary)", fontSize: "1.05rem" }}>
+															{app.candidate?.first_name} {app.candidate?.last_name}
+														</h3>
+														<p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+															{app.candidate?.email}
+															{app.candidate?.location_city && ` \u2022 ${app.candidate.location_city}${app.candidate.location_state ? `, ${app.candidate.location_state}` : ""}`}
+														</p>
+													</div>
+													<span
+														style={{
+															padding: "0.25rem 0.75rem",
+															borderRadius: "1rem",
+															fontSize: "0.75rem",
+															fontWeight: 600,
+															background:
+																app.status === "shortlisted" ? "rgba(16, 185, 129, 0.15)" :
+																app.status === "rejected" ? "rgba(239, 68, 68, 0.15)" :
+																app.status === "hired" ? "rgba(34, 211, 238, 0.15)" :
+																app.status === "reviewed" ? "rgba(139, 92, 246, 0.15)" :
+																"rgba(245, 158, 11, 0.15)",
+															color:
+																app.status === "shortlisted" ? "#10b981" :
+																app.status === "rejected" ? "#ef4444" :
+																app.status === "hired" ? "var(--accent-cyan)" :
+																app.status === "reviewed" ? "#8b5cf6" :
+																"#f59e0b",
+														}}
+													>
+														{app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+													</span>
+												</div>
+
+												{app.candidate?.skills && app.candidate.skills.length > 0 && (
+													<div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.75rem" }}>
+														{app.candidate.skills.slice(0, 6).map((skill) => (
+															<span className="tag" key={`${app.id}-${skill}`}>{skill}</span>
+														))}
+													</div>
+												)}
+
+												{app.cover_letter && (
+													<p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.75rem", lineHeight: 1.5 }}>
+														<strong style={{ color: "var(--text-primary)" }}>Cover Letter:</strong>{" "}
+														{app.cover_letter.length > 200 ? `${app.cover_letter.slice(0, 197)}...` : app.cover_letter}
+													</p>
+												)}
+
+												<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+													{app.resume_url && (
+														<a
+															href={app.resume_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="btn btn-outline btn-sm"
+															style={{ textDecoration: "none" }}
+														>
+															<FileText size={14} />
+															Resume
+														</a>
+													)}
+													{app.candidate?.linkedin_url && (
+														<a
+															href={app.candidate.linkedin_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="btn btn-outline btn-sm"
+															style={{ textDecoration: "none" }}
+														>
+															<ExternalLink size={14} />
+															LinkedIn
+														</a>
+													)}
+													{app.candidate?.github_url && (
+														<a
+															href={app.candidate.github_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="btn btn-outline btn-sm"
+															style={{ textDecoration: "none" }}
+														>
+															<ExternalLink size={14} />
+															GitHub
+														</a>
+													)}
+
+													<div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem" }}>
+														{app.status !== "shortlisted" && (
+															<button
+																className="btn btn-sm"
+																style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)" }}
+																onClick={() => handleUpdateStatus(app.id, "shortlisted")}
+																disabled={statusUpdating === app.id}
+															>
+																<Star size={14} />
+																Shortlist
+															</button>
+														)}
+														{app.status !== "rejected" && (
+															<button
+																className="btn btn-sm"
+																style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)" }}
+																onClick={() => handleUpdateStatus(app.id, "rejected")}
+																disabled={statusUpdating === app.id}
+															>
+																<XCircle size={14} />
+																Reject
+															</button>
+														)}
+													</div>
+												</div>
+											</div>
+										))}
+									</div>
 								)}
 							</div>
 						</div>
