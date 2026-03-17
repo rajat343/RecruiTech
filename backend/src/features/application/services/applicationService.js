@@ -1,8 +1,10 @@
+const mongoose = require("mongoose");
 const Application = require("../../../models/application.schema");
 const Candidate = require("../../../models/candidate.schema");
 const Job = require("../../../models/job.schema");
 const User = require("../../../models/user.schema");
 const Recruiter = require("../../../models/recruiter.schema");
+const { sendEvaluationRequest } = require("../../../utils/kafkaProducer");
 
 const applyToJob = async (userId, { job_id, cover_letter, resume_url }) => {
   const user = await User.findById(userId);
@@ -32,6 +34,38 @@ const applyToJob = async (userId, { job_id, cover_letter, resume_url }) => {
   });
 
   await application.save();
+
+  // Trigger AI evaluation via Kafka if no evaluation exists yet
+  try {
+    const candidateId = candidate._id.toString();
+    const jobId = job._id.toString();
+    const resolvedResume = resume_url || candidate.resume_url || null;
+
+    if (resolvedResume) {
+      const db = mongoose.connection.db;
+      const existingEval = await db
+        .collection("evaluations")
+        .findOne({ candidate_id: candidateId, job_id: jobId });
+
+      if (!existingEval) {
+        await sendEvaluationRequest({
+          candidate_id: candidateId,
+          job_id: jobId,
+          job_description: job.description,
+          resume_s3_url: resolvedResume,
+          github_url: candidate.github_url || null,
+          leetcode_url: candidate.leetcode_url || null,
+        });
+      } else {
+        console.log(`Evaluation already exists for candidate=${candidateId}, job=${jobId}. Skipping Kafka.`);
+      }
+    } else {
+      console.log("No resume URL available. Skipping AI evaluation trigger.");
+    }
+  } catch (err) {
+    console.error("Failed to trigger AI evaluation (non-blocking):", err.message);
+  }
+
   return application;
 };
 
