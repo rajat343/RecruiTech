@@ -17,6 +17,7 @@ const recruiterTypeDefs = require("./features/recruiter/typeDefs");
 const companyTypeDefs = require("./features/company/typeDefs");
 const jobTypeDefs = require("./features/job/typeDefs");
 const applicationTypeDefs = require("./features/application/typeDefs");
+const evaluationTypeDefs = require("./features/evaluation/typeDefs");
 
 // Import resolvers
 const userResolvers = require("./features/user/resolvers");
@@ -25,6 +26,7 @@ const recruiterResolvers = require("./features/recruiter/resolvers");
 const companyResolvers = require("./features/company/resolvers");
 const jobResolvers = require("./features/job/resolvers");
 const applicationResolvers = require("./features/application/resolvers");
+const evaluationResolvers = require("./features/evaluation/resolvers");
 
 // Initialize Express app
 const app = express();
@@ -98,6 +100,7 @@ const server = new ApolloServer({
 		companyTypeDefs,
 		jobTypeDefs,
 		applicationTypeDefs,
+		evaluationTypeDefs,
 	],
 	resolvers: [
 		userResolvers,
@@ -106,6 +109,7 @@ const server = new ApolloServer({
 		companyResolvers,
 		jobResolvers,
 		applicationResolvers,
+		evaluationResolvers,
 	],
 	context: createContext,
 	formatError: (error) => {
