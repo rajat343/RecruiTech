@@ -12,6 +12,7 @@ import {
   X,
   Filter,
   Loader,
+  Video,
 } from "lucide-react";
 import "./CandidateJobs.css";
 import "./CandidateHome.css";
@@ -83,6 +84,8 @@ const CandidateJobs = () => {
   });
 
   const [appliedJobs, setAppliedJobs] = useState(new Set());
+  const [applicationMap, setApplicationMap] = useState({});
+  const [interviewMap, setInterviewMap] = useState({});
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applyingJob, setApplyingJob] = useState(null);
@@ -156,17 +159,33 @@ const CandidateJobs = () => {
     return () => { cancelled = true; };
   }, [activeFilters, token]);
 
-  // Fetch applied job IDs once on mount
+  // Fetch applied job IDs and interview status once on mount
   useEffect(() => {
     if (!token) return;
     const fetchApplied = async () => {
       try {
         const data = await graphqlRequest(
-          `query { myApplications(limit: 200) { job_id } }`,
+          `query { myApplications(limit: 200) { id job_id } }`,
           {},
           token
         );
-        setAppliedJobs(new Set(data.myApplications.map((a) => a.job_id)));
+        const apps = data.myApplications || [];
+        setAppliedJobs(new Set(apps.map((a) => a.job_id)));
+
+        const appMap = {};
+        apps.forEach((a) => { appMap[a.job_id] = a.id; });
+        setApplicationMap(appMap);
+
+        const interviewData = await graphqlRequest(
+          `query { myInterviews { id application_id interview_token status overall_score job_title } }`,
+          {},
+          token
+        );
+        const iMap = {};
+        (interviewData.myInterviews || []).forEach((iv) => {
+          iMap[iv.application_id] = iv;
+        });
+        setInterviewMap(iMap);
       } catch {
         // Candidate may not have a profile yet
       }
@@ -443,10 +462,39 @@ const CandidateJobs = () => {
                       </div>
                       <div className="card-actions">
                         {isApplied ? (
-                          <span className="btn-applied">
-                            <CheckCircle size={16} />
-                            Applied
-                          </span>
+                          <>
+                            <span className="btn-applied">
+                              <CheckCircle size={16} />
+                              Applied
+                            </span>
+                            {(() => {
+                              const appId = applicationMap[job.id];
+                              const iv = appId ? interviewMap[appId] : null;
+                              if (!iv) return null;
+                              if (iv.status === "completed") {
+                                return (
+                                  <span className="btn-interview-done" title={`Score: ${iv.overall_score}`}>
+                                    <CheckCircle size={14} />
+                                    Interviewed ({Math.round(iv.overall_score || 0)}/100)
+                                  </span>
+                                );
+                              }
+                              if (iv.status === "scheduled" || iv.status === "in_progress") {
+                                return (
+                                  <a
+                                    className="btn btn-accent btn-sm"
+                                    href={`/interview/${iv.interview_token}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Video size={14} />
+                                    {iv.status === "in_progress" ? "Resume Interview" : "Take Interview"}
+                                  </a>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </>
                         ) : (
                           <button
                             className="btn btn-primary btn-sm"
