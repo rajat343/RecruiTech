@@ -6,22 +6,21 @@ const OpenAI = require("openai");
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /**
- * Transcribe an audio buffer (webm/opus blob from MediaRecorder) using Whisper.
- * @param {Buffer} audioBuffer - The audio data
- * @param {string} [mimeType="audio/webm"] - MIME type of the audio
- * @returns {Promise<string>} - Transcribed text
+ * Transcribe an audio buffer using Whisper.
+ * Each buffer should be a complete, self-contained webm file (not a fragment).
  */
-const transcribeAudio = async (audioBuffer, mimeType = "audio/webm") => {
-	const ext = mimeType.includes("wav") ? "wav" : mimeType.includes("mp4") ? "mp4" : "webm";
-	const tmpPath = path.join(os.tmpdir(), `whisper-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`);
+const transcribeAudio = async (audioBuffer) => {
+	const tmpPath = path.join(
+		os.tmpdir(),
+		`whisper-${Date.now()}-${Math.random().toString(36).slice(2)}.webm`
+	);
 
 	try {
 		fs.writeFileSync(tmpPath, audioBuffer);
 
-		const fileStream = fs.createReadStream(tmpPath);
 		const response = await openai.audio.transcriptions.create({
 			model: "whisper-1",
-			file: fileStream,
+			file: fs.createReadStream(tmpPath),
 			language: "en",
 			response_format: "text",
 		});

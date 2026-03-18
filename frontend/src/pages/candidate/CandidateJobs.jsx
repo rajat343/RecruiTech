@@ -177,7 +177,7 @@ const CandidateJobs = () => {
         setApplicationMap(appMap);
 
         const interviewData = await graphqlRequest(
-          `query { myInterviews { id application_id interview_token status overall_score job_title } }`,
+          `query { myInterviews { id application_id interview_token status overall_score job_title results_released } }`,
           {},
           token
         );
@@ -473,9 +473,11 @@ const CandidateJobs = () => {
                               if (!iv) return null;
                               if (iv.status === "completed") {
                                 return (
-                                  <span className="btn-interview-done" title={`Score: ${iv.overall_score}`}>
+                                  <span className="btn-interview-done" title={iv.results_released ? `Score: ${iv.overall_score}` : "Results pending"}>
                                     <CheckCircle size={14} />
-                                    Interviewed ({Math.round(iv.overall_score || 0)}/100)
+                                    {iv.results_released
+                                      ? `Interviewed (${Math.round(iv.overall_score || 0)}/100)`
+                                      : "Interview Complete"}
                                   </span>
                                 );
                               }

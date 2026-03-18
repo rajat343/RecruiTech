@@ -90,9 +90,39 @@ const getInterviewForApplicationAsRecruiter = async (recruiterId, applicationId)
 	});
 };
 
+/**
+ * Recruiter releases interview results so the candidate can see their scores.
+ */
+const releaseResults = async (recruiterId, interviewId) => {
+	const recruiter = await Recruiter.findOne({ user_id: recruiterId, is_deleted: false });
+	if (!recruiter) throw new Error("Recruiter profile not found");
+
+	const interview = await Interview.findOne({ _id: interviewId, is_deleted: false });
+	if (!interview) throw new Error("Interview not found");
+
+	const application = await Application.findOne({ _id: interview.application_id, is_deleted: false });
+	if (!application) throw new Error("Application not found");
+
+	const job = await Job.findOne({
+		_id: application.job_id,
+		recruiter_id: recruiter._id.toString(),
+		is_deleted: false,
+	});
+	if (!job) throw new Error("You don't have permission to release results for this interview");
+
+	if (interview.status !== "completed") {
+		throw new Error("Can only release results for completed interviews");
+	}
+
+	interview.results_released = true;
+	await interview.save();
+	return interview;
+};
+
 module.exports = {
 	sendAiInterview,
 	getMyInterviews,
 	getInterviewForApplication,
 	getInterviewForApplicationAsRecruiter,
+	releaseResults,
 };

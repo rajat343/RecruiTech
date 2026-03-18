@@ -14,9 +14,6 @@ import {
 	CheckCircle,
 	AlertCircle,
 	Loader,
-	Star,
-	TrendingUp,
-	TrendingDown,
 	Send,
 	X,
 	LogOut,
@@ -27,7 +24,10 @@ import "./InterviewRoom.css";
 const INTERVIEW_SERVICE_URL =
 	import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5000";
 
-const AUDIO_CHUNK_INTERVAL = 6000;
+const AUDIO_CHUNK_INTERVAL = 4000;
+const SILENCE_THRESHOLD = 12;
+const SILENCE_DURATION_MS = 4000;
+const GRACE_PERIOD_MS = 4000;
 
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -41,20 +41,18 @@ const InterviewRoom = () => {
 	const [currentQuestion, setCurrentQuestion] = useState(null);
 	const [totalQuestions, setTotalQuestions] = useState(0);
 	const [currentIndex, setCurrentIndex] = useState(0);
-	const [isRecording, setIsRecording] = useState(false);
 	const [transcript, setTranscript] = useState("");
 	const [statusMessage, setStatusMessage] = useState("");
 	const [videoEnabled, setVideoEnabled] = useState(true);
 	const [audioEnabled, setAudioEnabled] = useState(true);
 	const [results, setResults] = useState(null);
 	const [errorMessage, setErrorMessage] = useState("");
-	const [previousFeedback, setPreviousFeedback] = useState(null);
-	const [answeredQuestions, setAnsweredQuestions] = useState([]);
 	const [elapsedTime, setElapsedTime] = useState(0);
-	const [manualInput, setManualInput] = useState("");
 	const [showEndConfirm, setShowEndConfirm] = useState(false);
 	const [webrtcConnected, setWebrtcConnected] = useState(false);
-	const [isTranscribing, setIsTranscribing] = useState(false);
+	const [silenceNotice, setSilenceNotice] = useState(false);
+	const [isAnswering, setIsAnswering] = useState(false);
+	const [questionsAnswered, setQuestionsAnswered] = useState(0);
 
 	const videoRef = useRef(null);
 	const streamRef = useRef(null);
@@ -62,9 +60,23 @@ const InterviewRoom = () => {
 	const timerRef = useRef(null);
 	const peerConnectionRef = useRef(null);
 	const audioRecorderRef = useRef(null);
+	const audioIntervalRef = useRef(null);
+	const isRecordingRef = useRef(false);
 	const videoRecorderRef = useRef(null);
 	const videoChunksRef = useRef([]);
 	const interviewIdRef = useRef(null);
+	const transcriptRef = useRef("");
+	const audioContextRef = useRef(null);
+	const analyserRef = useRef(null);
+	const silenceFrameRef = useRef(null);
+	const silentSinceRef = useRef(null);
+	const graceTimerRef = useRef(null);
+	const isProcessingRef = useRef(false);
+
+	// Keep transcriptRef in sync
+	useEffect(() => {
+		transcriptRef.current = transcript;
+	}, [transcript]);
 
 	// ─── Media: getUserMedia ───
 	const initializeMedia = useCallback(async () => {
@@ -86,7 +98,7 @@ const InterviewRoom = () => {
 		}
 	}, []);
 
-	// ─── WebRTC: create peer connection and negotiate with server ───
+	// ─── WebRTC: peer connection ───
 	const setupWebRTC = useCallback(async (socket, stream) => {
 		if (!stream) return;
 
@@ -108,13 +120,9 @@ const InterviewRoom = () => {
 		};
 
 		pc.onconnectionstatechange = () => {
-			if (pc.connectionState === "connected") {
-				setWebrtcConnected(true);
-				console.log("WebRTC peer connection established");
-			}
-			if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+			if (pc.connectionState === "connected") setWebrtcConnected(true);
+			if (pc.connectionState === "failed" || pc.connectionState === "disconnected")
 				setWebrtcConnected(false);
-			}
 		};
 
 		socket.on("webrtc-answer", async ({ sdp, type }) => {
@@ -128,18 +136,14 @@ const InterviewRoom = () => {
 		socket.on("webrtc-ice-candidate", async ({ candidate, sdpMid, sdpMLineIndex }) => {
 			try {
 				if (candidate) {
-					await pc.addIceCandidate(
-						new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex })
-					);
+					await pc.addIceCandidate(new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex }));
 				}
 			} catch (err) {
 				console.error("Failed to add ICE candidate:", err);
 			}
 		});
 
-		socket.on("webrtc-audio-connected", () => {
-			setWebrtcConnected(true);
-		});
+		socket.on("webrtc-audio-connected", () => setWebrtcConnected(true));
 
 		try {
 			const offer = await pc.createOffer();
@@ -150,60 +154,181 @@ const InterviewRoom = () => {
 		}
 	}, []);
 
-	// ─── MediaRecorder: audio chunks for Whisper transcription ───
-	const startAudioRecording = useCallback((socket, stream) => {
-		if (!stream) return;
+	// ─── Silence detection via AudioContext ───
+	const startSilenceDetection = useCallback(() => {
+		const stream = streamRef.current;
+		if (!stream || stream.getAudioTracks().length === 0) return;
+
+		try {
+			const ctx = new (window.AudioContext || window.webkitAudioContext)();
+			const source = ctx.createMediaStreamSource(stream);
+			const analyser = ctx.createAnalyser();
+			analyser.fftSize = 2048;
+			analyser.smoothingTimeConstant = 0.8;
+			source.connect(analyser);
+			audioContextRef.current = ctx;
+			analyserRef.current = analyser;
+		} catch (err) {
+			console.warn("AudioContext not available:", err);
+		}
+	}, []);
+
+	const monitorSilence = useCallback(() => {
+		const analyser = analyserRef.current;
+		if (!analyser) return;
+
+		const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+		const check = () => {
+			if (isProcessingRef.current) {
+				silentSinceRef.current = null;
+				silenceFrameRef.current = requestAnimationFrame(check);
+				return;
+			}
+
+			analyser.getByteFrequencyData(dataArray);
+			const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+			if (avg < SILENCE_THRESHOLD) {
+				if (!silentSinceRef.current) silentSinceRef.current = Date.now();
+				const silentFor = Date.now() - silentSinceRef.current;
+
+				if (
+					silentFor >= SILENCE_DURATION_MS &&
+					transcriptRef.current.trim() &&
+					!graceTimerRef.current
+				) {
+					setSilenceNotice(true);
+					graceTimerRef.current = setTimeout(() => {
+						autoSubmitAnswer();
+					}, GRACE_PERIOD_MS);
+				}
+			} else {
+				silentSinceRef.current = null;
+				if (graceTimerRef.current) {
+					clearTimeout(graceTimerRef.current);
+					graceTimerRef.current = null;
+					setSilenceNotice(false);
+				}
+			}
+
+			silenceFrameRef.current = requestAnimationFrame(check);
+		};
+
+		check();
+	}, []);
+
+	const stopSilenceMonitor = useCallback(() => {
+		if (silenceFrameRef.current) {
+			cancelAnimationFrame(silenceFrameRef.current);
+			silenceFrameRef.current = null;
+		}
+		if (graceTimerRef.current) {
+			clearTimeout(graceTimerRef.current);
+			graceTimerRef.current = null;
+		}
+		silentSinceRef.current = null;
+		setSilenceNotice(false);
+	}, []);
+
+	// ─── Audio recording: stop/restart for complete webm files ───
+	const startAudioSegment = useCallback((socket, stream) => {
+		if (!stream || !socket?.connected) return;
 
 		const audioStream = new MediaStream(stream.getAudioTracks());
 		const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
 			? "audio/webm;codecs=opus"
 			: "audio/webm";
 
+		const chunks = [];
 		const recorder = new MediaRecorder(audioStream, { mimeType });
 
 		recorder.ondataavailable = (event) => {
-			if (event.data.size > 0 && socket.connected) {
-				setIsTranscribing(true);
-				event.data.arrayBuffer().then((buffer) => {
-					socket.emit("audio-chunk", buffer);
-				});
-			}
+			if (event.data.size > 0) chunks.push(event.data);
 		};
 
-		audioRecorderRef.current = recorder;
-		return recorder;
-	}, []);
-
-	// ─── MediaRecorder: full video recording for recruiter replay ───
-	const startVideoRecording = useCallback((stream) => {
-		if (!stream) return;
-
-		const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-			? "video/webm;codecs=vp9,opus"
-			: "video/webm";
-
-		const recorder = new MediaRecorder(stream, { mimeType });
-		videoChunksRef.current = [];
-
-		recorder.ondataavailable = (event) => {
-			if (event.data.size > 0) {
-				videoChunksRef.current.push(event.data);
+		recorder.onstop = () => {
+			if (chunks.length > 0 && socket.connected) {
+				const blob = new Blob(chunks, { type: mimeType });
+				if (blob.size > 1000) {
+					blob.arrayBuffer().then((buffer) => {
+						socket.emit("audio-chunk", buffer);
+					});
+				}
+			}
+			if (isRecordingRef.current) {
+				startAudioSegment(socket, stream);
 			}
 		};
 
 		recorder.start();
+		audioRecorderRef.current = recorder;
+
+		audioIntervalRef.current = setTimeout(() => {
+			if (recorder.state !== "inactive") {
+				recorder.stop();
+			}
+		}, AUDIO_CHUNK_INTERVAL);
+	}, []);
+
+	const startRecording = useCallback(() => {
+		const socket = socketRef.current;
+		const stream = streamRef.current;
+		if (!socket || !stream) return;
+
+		isRecordingRef.current = true;
+		setIsAnswering(true);
+		startAudioSegment(socket, stream);
+		monitorSilence();
+	}, [startAudioSegment, monitorSilence]);
+
+	const stopRecording = useCallback(() => {
+		isRecordingRef.current = false;
+		setIsAnswering(false);
+		stopSilenceMonitor();
+		if (audioIntervalRef.current) {
+			clearTimeout(audioIntervalRef.current);
+			audioIntervalRef.current = null;
+		}
+		if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive") {
+			audioRecorderRef.current.stop();
+		}
+	}, [stopSilenceMonitor]);
+
+	// ─── Auto-submit on silence ───
+	const autoSubmitAnswer = useCallback(() => {
+		const answer = transcriptRef.current.trim();
+		const socket = socketRef.current;
+		if (!answer || !socket) return;
+
+		stopRecording();
+		isProcessingRef.current = true;
+		setSilenceNotice(false);
+		setStatusMessage("Processing your answer...");
+		socket.emit("candidate-answer", { answer });
+	}, [stopRecording]);
+
+	// ─── Video recording for recruiter replay ───
+	const startVideoRecording = useCallback((stream) => {
+		if (!stream) return;
+		const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+			? "video/webm;codecs=vp9,opus"
+			: "video/webm";
+		const recorder = new MediaRecorder(stream, { mimeType });
+		videoChunksRef.current = [];
+		recorder.ondataavailable = (event) => {
+			if (event.data.size > 0) videoChunksRef.current.push(event.data);
+		};
+		recorder.start();
 		videoRecorderRef.current = recorder;
 	}, []);
 
-	// ─── Upload recording at interview end ───
 	const uploadRecording = useCallback(async () => {
 		if (videoChunksRef.current.length === 0 || !interviewIdRef.current) return;
-
 		try {
 			const blob = new Blob(videoChunksRef.current, { type: "video/webm" });
 			const formData = new FormData();
 			formData.append("recording", blob, "interview-recording.webm");
-
 			await axios.post(
 				`${INTERVIEW_SERVICE_URL}/api/interviews/${interviewIdRef.current}/recording`,
 				formData,
@@ -214,11 +339,29 @@ const InterviewRoom = () => {
 					},
 				}
 			);
-			console.log("Interview recording uploaded");
 		} catch (err) {
 			console.error("Failed to upload recording:", err);
 		}
 	}, [authToken]);
+
+	// ─── Handle new question arriving (auto-start recording) ───
+	const onQuestionReceived = useCallback(
+		(question, questionIndex, total) => {
+			isProcessingRef.current = false;
+			setCurrentQuestion(question);
+			setCurrentIndex(questionIndex);
+			setTotalQuestions(total);
+			setTranscript("");
+			transcriptRef.current = "";
+			setStatusMessage("");
+			setSilenceNotice(false);
+
+			setTimeout(() => {
+				startRecording();
+			}, 1500);
+		},
+		[startRecording]
+	);
 
 	// ─── Socket.IO connection ───
 	const connectSocket = useCallback(async () => {
@@ -230,7 +373,6 @@ const InterviewRoom = () => {
 		});
 
 		socket.on("connect", () => {
-			console.log("Socket connected");
 			socket.emit("join-interview", { interviewToken });
 		});
 
@@ -242,13 +384,10 @@ const InterviewRoom = () => {
 
 		socket.on("capabilities", async () => {
 			const stream = streamRef.current;
-			if (stream) {
-				await setupWebRTC(socket, stream);
-			}
+			if (stream) await setupWebRTC(socket, stream);
 		});
 
 		socket.on("transcription", ({ text }) => {
-			setIsTranscribing(false);
 			if (text) {
 				setTranscript((prev) => (prev ? prev + " " + text : text));
 			}
@@ -257,71 +396,48 @@ const InterviewRoom = () => {
 		socket.on("interview-started", (data) => {
 			setStatus("in_progress");
 			setJobTitle(data.jobTitle || "");
-			setTotalQuestions(data.totalQuestions);
-			setCurrentIndex(data.currentQuestionIndex);
-			setCurrentQuestion(data.question);
-			setStatusMessage("");
 			interviewIdRef.current = data.interviewId;
 
 			const stream = streamRef.current;
-			if (stream) {
-				startVideoRecording(stream);
-			}
+			if (stream) startVideoRecording(stream);
 
 			timerRef.current = setInterval(() => {
 				setElapsedTime((prev) => prev + 1);
 			}, 1000);
+
+			if (data.question) {
+				onQuestionReceived(data.question, data.currentQuestionIndex, data.totalQuestions);
+			}
 		});
 
-		socket.on("interview-already-completed", (data) => {
+		socket.on("interview-already-completed", () => {
 			setStatus("completed");
-			setResults(data);
+			setResults({ completed: true });
 		});
 
 		socket.on("new-question", (data) => {
-			setCurrentQuestion(data.question);
-			setCurrentIndex(data.currentQuestionIndex);
-			setTotalQuestions(data.totalQuestions);
-			setTranscript("");
-			setStatusMessage("");
-			if (data.previousEvaluation) {
-				setPreviousFeedback(data.previousEvaluation);
-				setAnsweredQuestions((prev) => [
-					...prev,
-					{ score: data.previousEvaluation.score },
-				]);
-				setTimeout(() => setPreviousFeedback(null), 4000);
-			}
+			setQuestionsAnswered((prev) => prev + 1);
+			onQuestionReceived(data.question, data.currentQuestionIndex, data.totalQuestions);
 		});
 
 		socket.on("follow-up-question", (data) => {
-			setCurrentQuestion(data.question);
-			setCurrentIndex(data.currentQuestionIndex);
-			setTotalQuestions(data.totalQuestions);
-			setTranscript("");
-			setStatusMessage("");
-			if (data.previousEvaluation) {
-				setPreviousFeedback(data.previousEvaluation);
-				setTimeout(() => setPreviousFeedback(null), 4000);
-			}
+			onQuestionReceived(data.question, data.currentQuestionIndex, data.totalQuestions);
 		});
 
 		socket.on("status-update", (data) => {
 			setStatusMessage(data.message);
 		});
 
-		socket.on("interview-complete", async (data) => {
+		socket.on("interview-complete", async () => {
 			setStatus("completed");
-			setResults(data);
+			setResults({ completed: true });
+			isProcessingRef.current = false;
 			if (timerRef.current) clearInterval(timerRef.current);
+			stopRecording();
 
 			if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive") {
 				videoRecorderRef.current.stop();
 			}
-			if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive") {
-				audioRecorderRef.current.stop();
-			}
-
 			await uploadRecording();
 		});
 
@@ -333,76 +449,44 @@ const InterviewRoom = () => {
 		});
 
 		socketRef.current = socket;
-	}, [authToken, interviewToken, setupWebRTC, startVideoRecording, uploadRecording]);
+	}, [
+		authToken,
+		interviewToken,
+		setupWebRTC,
+		startVideoRecording,
+		uploadRecording,
+		onQuestionReceived,
+		stopRecording,
+	]);
 
 	useEffect(() => {
 		const init = async () => {
 			await initializeMedia();
+			startSilenceDetection();
 			await connectSocket();
 		};
 		init();
 
 		return () => {
+			isRecordingRef.current = false;
 			if (socketRef.current) socketRef.current.disconnect();
-			if (streamRef.current) {
-				streamRef.current.getTracks().forEach((t) => t.stop());
-			}
-			if (peerConnectionRef.current) {
-				peerConnectionRef.current.close();
-			}
-			if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive") {
+			if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+			if (peerConnectionRef.current) peerConnectionRef.current.close();
+			if (audioIntervalRef.current) clearTimeout(audioIntervalRef.current);
+			if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive")
 				audioRecorderRef.current.stop();
-			}
-			if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive") {
+			if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive")
 				videoRecorderRef.current.stop();
-			}
 			if (timerRef.current) clearInterval(timerRef.current);
+			if (silenceFrameRef.current) cancelAnimationFrame(silenceFrameRef.current);
+			if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+			if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
 		};
-	}, [initializeMedia, connectSocket]);
-
-	// ─── Mic: start/stop audio recording & streaming chunks to server ───
-	const startListening = () => {
-		const socket = socketRef.current;
-		const stream = streamRef.current;
-		if (!socket || !stream) return;
-
-		let recorder = audioRecorderRef.current;
-		if (!recorder || recorder.state === "inactive") {
-			recorder = startAudioRecording(socket, stream);
-		}
-		if (recorder) {
-			recorder.start(AUDIO_CHUNK_INTERVAL);
-			setIsRecording(true);
-		}
-	};
-
-	const stopListening = () => {
-		setIsRecording(false);
-		if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive") {
-			audioRecorderRef.current.stop();
-		}
-	};
-
-	const submitAnswer = () => {
-		const answer = transcript.trim();
-		if (!answer || !socketRef.current) return;
-
-		stopListening();
-		socketRef.current.emit("candidate-answer", { answer });
-		setStatusMessage("Processing your answer...");
-	};
-
-	const submitManualAnswer = () => {
-		const answer = manualInput.trim();
-		if (!answer || !socketRef.current) return;
-
-		socketRef.current.emit("candidate-answer", { answer });
-		setManualInput("");
-		setStatusMessage("Processing your answer...");
-	};
+	}, [initializeMedia, startSilenceDetection, connectSocket]);
 
 	const endInterview = () => {
 		if (socketRef.current) {
+			stopRecording();
 			socketRef.current.emit("end-interview");
 			setStatusMessage("Wrapping up your interview...");
 		}
@@ -410,31 +494,33 @@ const InterviewRoom = () => {
 	};
 
 	const leaveInterview = () => {
+		isRecordingRef.current = false;
 		if (socketRef.current) socketRef.current.disconnect();
-		if (streamRef.current) {
-			streamRef.current.getTracks().forEach((t) => t.stop());
-		}
+		if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
 		if (peerConnectionRef.current) peerConnectionRef.current.close();
+		if (audioIntervalRef.current) clearTimeout(audioIntervalRef.current);
+		if (silenceFrameRef.current) cancelAnimationFrame(silenceFrameRef.current);
+		if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
 		if (timerRef.current) clearInterval(timerRef.current);
 		navigate("/candidate/jobs");
 	};
 
 	const toggleVideo = () => {
 		if (streamRef.current) {
-			const videoTrack = streamRef.current.getVideoTracks()[0];
-			if (videoTrack) {
-				videoTrack.enabled = !videoTrack.enabled;
-				setVideoEnabled(videoTrack.enabled);
+			const vt = streamRef.current.getVideoTracks()[0];
+			if (vt) {
+				vt.enabled = !vt.enabled;
+				setVideoEnabled(vt.enabled);
 			}
 		}
 	};
 
 	const toggleAudio = () => {
 		if (streamRef.current) {
-			const audioTrack = streamRef.current.getAudioTracks()[0];
-			if (audioTrack) {
-				audioTrack.enabled = !audioTrack.enabled;
-				setAudioEnabled(audioTrack.enabled);
+			const at = streamRef.current.getAudioTracks()[0];
+			if (at) {
+				at.enabled = !at.enabled;
+				setAudioEnabled(at.enabled);
 			}
 		}
 	};
@@ -445,6 +531,7 @@ const InterviewRoom = () => {
 		return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 	};
 
+	// ─── Error screen ───
 	if (status === "error") {
 		return (
 			<div className="interview-room">
@@ -460,6 +547,7 @@ const InterviewRoom = () => {
 		);
 	}
 
+	// ─── Completed screen (no scores — recruiter releases them) ───
 	if (status === "completed" && results) {
 		return (
 			<div className="interview-room">
@@ -469,54 +557,17 @@ const InterviewRoom = () => {
 						<h2>Interview Complete</h2>
 						{jobTitle && <p className="results-job-title">{jobTitle}</p>}
 					</div>
-
-					<div className="score-circle">
-						<svg viewBox="0 0 120 120">
-							<circle cx="60" cy="60" r="54" className="score-bg" />
-							<circle
-								cx="60"
-								cy="60"
-								r="54"
-								className="score-fill"
-								style={{
-									strokeDasharray: `${(results.overall_score / 100) * 339.3} 339.3`,
-								}}
-							/>
-						</svg>
-						<div className="score-value">
-							<span className="score-number">{Math.round(results.overall_score)}</span>
-							<span className="score-label">/ 100</span>
-						</div>
-					</div>
-
-					<p className="results-feedback">{results.overall_feedback}</p>
-
-					{results.strengths?.length > 0 && (
-						<div className="results-section">
-							<h3>
-								<TrendingUp size={18} /> Strengths
-							</h3>
-							<ul>
-								{results.strengths.map((s, i) => (
-									<li key={i}>{s}</li>
-								))}
-							</ul>
-						</div>
+					<p className="results-feedback">
+						Thank you for completing your AI interview! Your responses have been
+						recorded and will be reviewed by the hiring team. You&apos;ll be notified
+						once the results are available.
+					</p>
+					{questionsAnswered > 0 && (
+						<p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+							You answered {questionsAnswered} question{questionsAnswered > 1 ? "s" : ""} in{" "}
+							{formatTime(elapsedTime)}.
+						</p>
 					)}
-
-					{results.improvements?.length > 0 && (
-						<div className="results-section improvements">
-							<h3>
-								<TrendingDown size={18} /> Areas for Improvement
-							</h3>
-							<ul>
-								{results.improvements.map((s, i) => (
-									<li key={i}>{s}</li>
-								))}
-							</ul>
-						</div>
-					)}
-
 					<button className="btn btn-primary" onClick={() => navigate("/candidate/jobs")}>
 						Back to Jobs
 					</button>
@@ -525,6 +576,7 @@ const InterviewRoom = () => {
 		);
 	}
 
+	// ─── Main interview UI ───
 	return (
 		<div className="interview-room">
 			<div className="interview-layout">
@@ -634,17 +686,12 @@ const InterviewRoom = () => {
 						</div>
 					)}
 
-					{previousFeedback && (
-						<div className="feedback-toast">
-							<Star size={16} />
-							Score: {previousFeedback.score}/10 — {previousFeedback.feedback}
-						</div>
-					)}
-
 					{currentQuestion && (
 						<div className="question-section">
 							<div className="question-badge">
-								{currentQuestion.type === "follow_up" ? "Follow-up" : currentQuestion.category?.replace("_", " ")}
+								{currentQuestion.type === "follow_up"
+									? "Follow-up"
+									: currentQuestion.category?.replace("_", " ")}
 							</div>
 							<div className="question-card">
 								<MessageSquare size={20} />
@@ -658,87 +705,41 @@ const InterviewRoom = () => {
 							<div className="transcript-area">
 								<div className="transcript-header">
 									<span>Your Answer</span>
-									{isRecording && (
+									{isAnswering && (
 										<span className="listening-indicator">
 											<span className="pulse-dot" />
-											{isTranscribing ? "Transcribing..." : "Recording..."}
+											Listening...
 										</span>
 									)}
 								</div>
 								<div className="transcript-content">
 									{transcript ? (
 										<span>{transcript}</span>
+									) : isAnswering ? (
+										<span className="placeholder-text">
+											Go ahead — start answering. Your speech is being transcribed in real time.
+										</span>
 									) : (
 										<span className="placeholder-text">
-											Click the microphone to start speaking — your audio is streamed to the server and transcribed by Whisper AI. Or type below.
+											Preparing...
 										</span>
 									)}
 								</div>
 							</div>
 
-							<div className="answer-controls">
-								<button
-									className={`btn ${isRecording ? "btn-danger" : "btn-primary"} mic-btn`}
-									onClick={isRecording ? stopListening : startListening}
-								>
-									{isRecording ? (
-										<>
-											<MicOff size={16} /> Stop
-										</>
-									) : (
-										<>
-											<Mic size={16} /> Speak
-										</>
-									)}
-								</button>
-								<button
-									className="btn btn-primary submit-btn"
-									onClick={submitAnswer}
-									disabled={!transcript.trim() || !!statusMessage}
-								>
-									{statusMessage ? (
-										<>
-											<Loader size={16} className="spin" /> Processing...
-										</>
-									) : (
-										<>
-											<Send size={16} /> Submit Answer
-										</>
-									)}
-								</button>
-							</div>
-
-							<div className="manual-input-section">
-								<input
-									type="text"
-									className="input-field"
-									placeholder="Or type your answer here..."
-									value={manualInput}
-									onChange={(e) => setManualInput(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") submitManualAnswer();
-									}}
-								/>
-								<button
-									className="btn btn-outline btn-sm"
-									onClick={submitManualAnswer}
-									disabled={!manualInput.trim() || !!statusMessage}
-								>
+							{silenceNotice && (
+								<div className="silence-notice">
 									<Send size={14} />
-								</button>
-							</div>
-						</div>
-					)}
-
-					{answeredQuestions.length > 0 && (
-						<div className="answered-summary">
-							{answeredQuestions.map((q, i) => (
-								<div key={i} className="answered-dot" title={`Q${i + 1}: ${q.score}/10`}>
-									<span
-										className={`dot ${q.score >= 7 ? "good" : q.score >= 4 ? "ok" : "poor"}`}
-									/>
+									Submitting your answer shortly&hellip; keep speaking to continue.
 								</div>
-							))}
+							)}
+
+							{statusMessage && !silenceNotice && (
+								<div className="processing-notice">
+									<Loader size={14} className="spin" />
+									{statusMessage}
+								</div>
+							)}
 						</div>
 					)}
 				</div>
@@ -747,15 +748,17 @@ const InterviewRoom = () => {
 			{showEndConfirm && (
 				<div className="modal-overlay" onClick={() => setShowEndConfirm(false)}>
 					<div className="end-confirm-modal" onClick={(e) => e.stopPropagation()}>
-						<button className="modal-close-btn" onClick={() => setShowEndConfirm(false)}>
+						<button
+							className="modal-close-btn"
+							onClick={() => setShowEndConfirm(false)}
+						>
 							<X size={20} />
 						</button>
 						<AlertCircle size={40} className="end-confirm-icon" />
 						<h3>End Interview?</h3>
 						<p>
-							{answeredQuestions.length > 0
-								? `You've answered ${answeredQuestions.length} question${answeredQuestions.length > 1 ? "s" : ""}. Ending now will generate your score based on what you've completed.`
-								: "Are you sure you want to end the interview? Your progress will be scored."}
+							Are you sure you want to end the interview? Your responses so far
+							will be submitted for evaluation.
 						</p>
 						<div className="end-confirm-actions">
 							<button
@@ -766,12 +769,12 @@ const InterviewRoom = () => {
 							</button>
 							<button className="btn btn-danger" onClick={endInterview}>
 								<PhoneOff size={16} />
-								End & Get Score
+								End Interview
 							</button>
 						</div>
 						<button className="leave-link" onClick={leaveInterview}>
 							<LogOut size={14} />
-							Leave without scoring
+							Leave without submitting
 						</button>
 					</div>
 				</div>

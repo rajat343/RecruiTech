@@ -775,3 +775,42 @@
 	color: #ef4444;
 	background: rgba(239, 68, 68, 0.08);
 }
+
+/* Silence / auto-submit notices */
+.silence-notice {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0.75rem 1rem;
+	background: rgba(234, 179, 8, 0.12);
+	border: 1px solid rgba(234, 179, 8, 0.3);
+	border-radius: 10px;
+	color: #eab308;
+	font-size: 0.85rem;
+	font-weight: 500;
+	animation: fadeInUp 0.3s ease;
+}
+
+.processing-notice {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0.75rem 1rem;
+	background: rgba(99, 102, 241, 0.12);
+	border: 1px solid rgba(99, 102, 241, 0.3);
+	border-radius: 10px;
+	color: #818cf8;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

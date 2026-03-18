@@ -9,10 +9,7 @@ const questionSchema = new mongoose.Schema(
 			enum: ["initial", "follow_up"],
 			default: "initial",
 		},
-		category: {
-			type: String,
-			enum: ["technical", "behavioral", "situational", "job_specific", "project_based"],
-		},
+		category: { type: String },
 		candidate_answer: { type: String, default: "" },
 		ai_evaluation: { type: String, default: "" },
 		score: { type: Number, min: 0, max: 10 },
@@ -50,6 +47,7 @@ const interviewSchema = new mongoose.Schema(
 		strengths: [String],
 		improvements: [String],
 		recording_url: { type: String },
+		results_released: { type: Boolean, default: false },
 		started_at: { type: Date },
 		completed_at: { type: Date },
 		expires_at: {

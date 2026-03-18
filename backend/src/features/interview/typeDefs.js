@@ -35,6 +35,7 @@ const interviewTypeDefs = gql`
     strengths: [String!]
     improvements: [String!]
     recording_url: String
+    results_released: Boolean
     started_at: String
     completed_at: String
     expires_at: String
@@ -52,6 +53,7 @@ const interviewTypeDefs = gql`
 
   type Mutation {
     sendAiInterview(input: SendAiInterviewInput!): Interview!
+    releaseInterviewResults(interview_id: ID!): Interview!
   }
 `;
 

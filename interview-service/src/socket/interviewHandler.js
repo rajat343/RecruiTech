@@ -33,12 +33,7 @@ const registerInterviewHandlers = (io, socket) => {
 			}
 
 			if (interview.status === "completed") {
-				return socket.emit("interview-already-completed", {
-					overall_score: interview.overall_score,
-					overall_feedback: interview.overall_feedback,
-					strengths: interview.strengths,
-					improvements: interview.improvements,
-				});
+				return socket.emit("interview-already-completed", {});
 			}
 
 			if (interview.status === "expired") {
@@ -193,10 +188,6 @@ const registerInterviewHandlers = (io, socket) => {
 					},
 					totalQuestions: interview.questions.length,
 					currentQuestionIndex: insertIndex,
-					previousEvaluation: {
-						score: evaluation.score,
-						feedback: evaluation.evaluation,
-					},
 				});
 			} else {
 				const nextIndex = currentIndex + 1;
@@ -218,10 +209,6 @@ const registerInterviewHandlers = (io, socket) => {
 						},
 						totalQuestions: interview.questions.length,
 						currentQuestionIndex: nextIndex,
-						previousEvaluation: {
-							score: evaluation.score,
-							feedback: evaluation.evaluation,
-						},
 					});
 				}
 			}
@@ -274,14 +261,7 @@ async function finishInterview(interview, socket) {
 
 		await interview.save();
 
-		socket.emit("interview-complete", {
-			overall_score: finalAssessment.overall_score,
-			overall_feedback: finalAssessment.overall_feedback,
-			strengths: finalAssessment.strengths,
-			improvements: finalAssessment.improvements,
-			recommendation: finalAssessment.recommendation,
-			summary: finalAssessment.summary,
-		});
+		socket.emit("interview-complete", {});
 
 		await publishInterviewComplete({
 			interview_id: interview._id.toString(),
@@ -302,12 +282,7 @@ async function finishInterview(interview, socket) {
 		interview.overall_feedback = "Assessment generation failed. Please contact support.";
 		await interview.save();
 
-		socket.emit("interview-complete", {
-			overall_score: 0,
-			overall_feedback: "Assessment generation encountered an issue.",
-			strengths: [],
-			improvements: [],
-		});
+		socket.emit("interview-complete", {});
 	}
 }
 
