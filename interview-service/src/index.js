@@ -51,7 +51,7 @@ io.on("connection", (socket) => {
 	});
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.INTERVIEW_SERVICE_PORT || 5000;
 
 const start = async () => {
 	try {
@@ -59,7 +59,9 @@ const start = async () => {
 		await connectProducer();
 
 		server.listen(PORT, () => {
-			console.log(`Interview service running on http://localhost:${PORT}`);
+			console.log(
+				`Interview service running on http://localhost:${PORT}`,
+			);
 			console.log(`WebSocket server ready`);
 			console.log(`REST API at http://localhost:${PORT}/api/interviews`);
 		});

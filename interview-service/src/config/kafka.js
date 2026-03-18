@@ -2,7 +2,7 @@ const { Kafka } = require("kafkajs");
 
 const kafka = new Kafka({
 	clientId: "interview-service",
-	brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
+	brokers: [process.env.KAFKA_BOOTSTRAP_SERVERS || "localhost:9092"],
 });
 
 const producer = kafka.producer();
@@ -16,7 +16,9 @@ const connectProducer = async () => {
 		console.log("Kafka producer connected");
 	} catch (error) {
 		console.error("Kafka producer connection failed:", error.message);
-		console.warn("Interview completion events will not be published to Kafka");
+		console.warn(
+			"Interview completion events will not be published to Kafka",
+		);
 	}
 };
 
@@ -35,7 +37,9 @@ const publishInterviewComplete = async (interviewData) => {
 				},
 			],
 		});
-		console.log(`Published interview-complete for candidate ${interviewData.candidate_id}`);
+		console.log(
+			`Published interview-complete for candidate ${interviewData.candidate_id}`,
+		);
 	} catch (error) {
 		console.error("Failed to publish interview-complete:", error.message);
 	}
