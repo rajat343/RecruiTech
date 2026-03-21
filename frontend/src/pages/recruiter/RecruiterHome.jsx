@@ -18,6 +18,10 @@ import {
 	XCircle,
 	Star,
 	ExternalLink,
+	Video,
+	Loader,
+	Play,
+	Send,
 } from "lucide-react";
 import "../candidate/CandidateHome.css";
 
@@ -78,6 +82,9 @@ const RecruiterHome = () => {
 	const [applicantsLoading, setApplicantsLoading] = useState(false);
 	const [totalApplicants, setTotalApplicants] = useState(0);
 	const [statusUpdating, setStatusUpdating] = useState(null);
+	const [interviewStatuses, setInterviewStatuses] = useState({});
+	const [sendingInterview, setSendingInterview] = useState(null);
+	const [releasingResults, setReleasingResults] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -429,6 +436,7 @@ const RecruiterHome = () => {
 		setShowApplicantsModal(true);
 		setApplicantsLoading(true);
 		setApplicants([]);
+		setInterviewStatuses({});
 
 		try {
 			const data = await graphqlRequest(
@@ -460,7 +468,31 @@ const RecruiterHome = () => {
 				{ job_id: job.id },
 				token
 			);
-			setApplicants(data.applicationsForJob || []);
+			const apps = data.applicationsForJob || [];
+			setApplicants(apps);
+
+			const ivStatuses = {};
+			await Promise.all(
+				apps.map(async (app) => {
+					try {
+						const ivData = await graphqlRequest(
+							`query GetInterview($application_id: ID!) {
+								interviewForApplication(application_id: $application_id) {
+									id status overall_score interview_token recording_url results_released
+								}
+							}`,
+							{ application_id: app.id },
+							token
+						);
+						if (ivData.interviewForApplication) {
+							ivStatuses[app.id] = ivData.interviewForApplication;
+						}
+					} catch {
+						// no interview for this application
+					}
+				})
+			);
+			setInterviewStatuses(ivStatuses);
 		} catch (err) {
 			console.error("Error fetching applicants:", err);
 		} finally {
@@ -492,6 +524,52 @@ const RecruiterHome = () => {
 			console.error("Error updating status:", err);
 		} finally {
 			setStatusUpdating(null);
+		}
+	};
+
+	const handleSendAiInterview = async (applicationId) => {
+		setSendingInterview(applicationId);
+		try {
+			const data = await graphqlRequest(
+				`mutation SendAiInterview($input: SendAiInterviewInput!) {
+					sendAiInterview(input: $input) {
+						id status overall_score interview_token recording_url results_released
+					}
+				}`,
+				{ input: { application_id: applicationId } },
+				token
+			);
+			setInterviewStatuses((prev) => ({
+				...prev,
+				[applicationId]: data.sendAiInterview,
+			}));
+		} catch (err) {
+			console.error("Error sending AI interview:", err);
+		} finally {
+			setSendingInterview(null);
+		}
+	};
+
+	const handleReleaseResults = async (applicationId, interviewId) => {
+		setReleasingResults(applicationId);
+		try {
+			const data = await graphqlRequest(
+				`mutation ReleaseResults($interview_id: ID!) {
+					releaseInterviewResults(interview_id: $interview_id) {
+						id status overall_score interview_token recording_url results_released
+					}
+				}`,
+				{ interview_id: interviewId },
+				token
+			);
+			setInterviewStatuses((prev) => ({
+				...prev,
+				[applicationId]: data.releaseInterviewResults,
+			}));
+		} catch (err) {
+			console.error("Error releasing results:", err);
+		} finally {
+			setReleasingResults(null);
 		}
 	};
 
@@ -1461,7 +1539,84 @@ const RecruiterHome = () => {
 														</a>
 													)}
 
-													<div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem" }}>
+													<div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+														{(() => {
+															const iv = interviewStatuses[app.id];
+															if (iv && iv.status === "completed") {
+																return (
+																	<>
+																		<span
+																			className="btn btn-sm"
+																			style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", cursor: "default" }}
+																		>
+																			<CheckCircle size={14} />
+																			Score: {Math.round(iv.overall_score || 0)}/100
+																		</span>
+																		{iv.recording_url && (
+																			<a
+																				href={`${import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5000"}${iv.recording_url}`}
+																				target="_blank"
+																				rel="noopener noreferrer"
+																				className="btn btn-sm"
+																				style={{ background: "rgba(99, 102, 241, 0.15)", color: "#6366f1", border: "1px solid rgba(99, 102, 241, 0.3)" }}
+																			>
+																				<Play size={14} />
+																				Watch Recording
+																			</a>
+																		)}
+																		{iv.results_released ? (
+																			<span
+																				className="btn btn-sm"
+																				style={{ background: "rgba(16, 185, 129, 0.1)", color: "#6ee7b7", border: "1px solid rgba(16, 185, 129, 0.2)", cursor: "default" }}
+																			>
+																				<CheckCircle size={14} />
+																				Results Shared
+																			</span>
+																		) : (
+																			<button
+																				className="btn btn-sm"
+																				style={{ background: "rgba(234, 179, 8, 0.15)", color: "#eab308", border: "1px solid rgba(234, 179, 8, 0.3)" }}
+																				onClick={() => handleReleaseResults(app.id, iv.id)}
+																				disabled={releasingResults === app.id}
+																			>
+																				{releasingResults === app.id ? (
+																					<Loader size={14} className="spin" />
+																				) : (
+																					<Send size={14} />
+																				)}
+																				Release Results
+																			</button>
+																		)}
+																	</>
+																);
+															}
+															if (iv && (iv.status === "scheduled" || iv.status === "in_progress")) {
+																return (
+																	<span
+																		className="btn btn-sm"
+																		style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)", cursor: "default" }}
+																	>
+																		<Video size={14} />
+																		Interview Sent
+																	</span>
+																);
+															}
+															return (
+																<button
+																	className="btn btn-sm"
+																	style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
+																	onClick={() => handleSendAiInterview(app.id)}
+																	disabled={sendingInterview === app.id}
+																>
+																	{sendingInterview === app.id ? (
+																		<Loader size={14} className="spin" />
+																	) : (
+																		<Video size={14} />
+																	)}
+																	Send AI Interview
+																</button>
+															);
+														})()}
 														{app.status !== "shortlisted" && (
 															<button
 																className="btn btn-sm"
