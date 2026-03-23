@@ -25,6 +25,17 @@ class WeightProfile(BaseModel):
     weights: dict[str, float]  # {"ats": 0.40, "github": 0.35, "leetcode": 0.25}
 
 
+class DimensionScore(BaseModel):
+    dimension: str
+    score: float = Field(ge=0, le=100)
+    rationale: str = ""
+
+
+class ConcernTag(BaseModel):
+    label: str
+    severity: str = "moderate"  # "critical" | "moderate"
+
+
 class ConsolidatedReport(BaseModel):
     candidate_id: str
     job_id: str
@@ -36,6 +47,9 @@ class ConsolidatedReport(BaseModel):
     key_concerns: list[str] = []
     interview_focus_areas: list[str] = []
     summary: str = ""
+    dimension_scores: list[DimensionScore] = []
+    strength_tags: list[str] = []
+    concern_tags: list[ConcernTag] = []
 
 
 class DAGInputs(BaseModel):

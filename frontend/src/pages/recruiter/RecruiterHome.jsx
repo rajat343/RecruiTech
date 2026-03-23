@@ -14,8 +14,6 @@ import {
 	Building2,
 	FileText,
 	ChevronLeft,
-	ChevronDown,
-	ChevronRight,
 	CheckCircle,
 	XCircle,
 	Star,
@@ -26,8 +24,8 @@ import {
 	Send,
 	BarChart3,
 	AlertTriangle,
-	Target,
 } from "lucide-react";
+import AIAnalysisReport from "./AIAnalysisReport";
 import "../candidate/CandidateHome.css";
 
 const formatDate = (isoString) => {
@@ -95,7 +93,6 @@ const RecruiterHome = () => {
 	const [analysisLoading, setAnalysisLoading] = useState(false);
 	const [analysisCandidate, setAnalysisCandidate] = useState(null);
 	const [analysisAppId, setAnalysisAppId] = useState(null);
-	const [collapsedSections, setCollapsedSections] = useState({});
 	const [evaluationScoresMap, setEvaluationScoresMap] = useState({});
 	const [triggerLoading, setTriggerLoading] = useState(false);
 	const [triggerSent, setTriggerSent] = useState(false);
@@ -622,10 +619,6 @@ const RecruiterHome = () => {
 		setApplicantsJob(null);
 	};
 
-	const toggleSection = (key) => {
-		setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
-	};
-
 	const handleShowAnalysis = async (app) => {
 		setAnalysisCandidate(app.candidate);
 		setAnalysisAppId(app.id);
@@ -633,7 +626,6 @@ const RecruiterHome = () => {
 		setAnalysisLoading(true);
 		setShowApplicantsModal(false);
 		setShowAnalysisModal(true);
-		setCollapsedSections({ interview: true, ats_scorer: true, github_analyzer: true, leetcode_analyzer: true });
 		setTriggerSent(false);
 		setTriggerError(null);
 
@@ -649,6 +641,16 @@ const RecruiterHome = () => {
 						top_strengths
 						key_concerns
 						interview_focus_areas
+						dimension_scores {
+							dimension
+							score
+							rationale
+						}
+						strength_tags
+						concern_tags {
+							label
+							severity
+						}
 						agent_results {
 							agent_name
 							overall_score
@@ -734,24 +736,6 @@ const RecruiterHome = () => {
 		if (score >= 75) return "#10b981";
 		if (score >= 50) return "#f59e0b";
 		return "#ef4444";
-	};
-
-	const getFitBadgeStyle = (fitLevel) => {
-		const colors = {
-			Strong: { bg: "rgba(16, 185, 129, 0.15)", color: "#10b981" },
-			Moderate: { bg: "rgba(245, 158, 11, 0.15)", color: "#f59e0b" },
-			Weak: { bg: "rgba(239, 68, 68, 0.15)", color: "#ef4444" },
-		};
-		return colors[fitLevel] || colors.Moderate;
-	};
-
-	const formatAgentName = (name) => {
-		const names = {
-			ats_scorer: "ATS Resume Score",
-			github_analyzer: "GitHub Analysis",
-			leetcode_analyzer: "LeetCode Analysis",
-		};
-		return names[name] || name;
 	};
 
 	return (
@@ -1650,257 +1634,13 @@ const RecruiterHome = () => {
 										)}
 									</div>
 								) : (
-									<div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", fontSize: "1rem" }}>
-										{/* Overall Score + Fit Level + Actions */}
-										<div style={{
-											display: "flex", alignItems: "center", gap: "1.5rem",
-											background: "var(--bg-dark)", border: "1px solid var(--border)",
-											borderRadius: "0.75rem", padding: "1.5rem",
-										}}>
-											<div style={{
-												width: "90px", height: "90px", borderRadius: "50%",
-												border: `4px solid ${getScoreColor(analysisData.final_score)}`,
-												display: "flex", alignItems: "center", justifyContent: "center",
-												flexShrink: 0,
-											}}>
-												<span style={{ fontSize: "1.75rem", fontWeight: 700, color: getScoreColor(analysisData.final_score) }}>
-													{Math.round(analysisData.final_score)}
-												</span>
-											</div>
-											<div style={{ flex: 1 }}>
-												<div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
-													<h3 style={{ margin: 0, fontSize: "1.35rem" }}>Overall Score</h3>
-													<span style={{
-														padding: "0.25rem 0.85rem", borderRadius: "1rem",
-														fontSize: "0.95rem", fontWeight: 600,
-														background: getFitBadgeStyle(analysisData.fit_level).bg,
-														color: getFitBadgeStyle(analysisData.fit_level).color,
-													}}>
-														{analysisData.fit_level} Fit
-													</span>
-												</div>
-												{analysisData.weight_profile && (
-													<p style={{ margin: 0, fontSize: "0.95rem", color: "var(--text-secondary)" }}>
-														{analysisData.weight_profile.name} — {analysisData.weight_profile.reason}
-													</p>
-												)}
-											</div>
-											<div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-												<button
-													className="btn btn-sm"
-													style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "0.5rem 1rem", fontSize: "0.9rem" }}
-													onClick={() => handleAnalysisAction("accept")}
-													disabled={statusUpdating === analysisAppId}
-												>
-													<Star size={15} />
-													Shortlist
-												</button>
-												<button
-													className="btn btn-sm"
-													style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "0.5rem 1rem", fontSize: "0.9rem" }}
-													onClick={() => handleAnalysisAction("reject")}
-													disabled={statusUpdating === analysisAppId}
-												>
-													<XCircle size={15} />
-													Reject
-												</button>
-											</div>
-										</div>
-
-										{/* Summary — always visible */}
-										{analysisData.summary && (
-											<div style={{
-												background: "var(--bg-dark)", border: "1px solid var(--border)",
-												borderRadius: "0.75rem", padding: "1.25rem",
-											}}>
-												<h4 style={{ margin: "0 0 0.6rem 0", fontSize: "1.1rem" }}>Summary</h4>
-												<p style={{ margin: 0, fontSize: "1rem", lineHeight: 1.7, color: "var(--text-secondary)" }}>
-													{analysisData.summary}
-												</p>
-											</div>
-										)}
-
-										{/* Top Strengths & Key Concerns — always visible */}
-										<div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-											{analysisData.top_strengths && analysisData.top_strengths.length > 0 && (
-												<div style={{
-													flex: 1, minWidth: "260px",
-													background: "var(--bg-dark)", border: "1px solid var(--border)",
-													borderRadius: "0.75rem", padding: "1.25rem",
-												}}>
-													<h4 style={{ margin: "0 0 0.6rem 0", fontSize: "1.05rem", color: "#10b981", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-														<CheckCircle size={18} /> Top Strengths
-													</h4>
-													{analysisData.top_strengths.map((s, i) => (
-														<p key={i} style={{ fontSize: "0.95rem", color: "var(--text-secondary)", margin: "0 0 0.4rem 0", lineHeight: 1.5 }}>
-															{s}
-														</p>
-													))}
-												</div>
-											)}
-											{analysisData.key_concerns && analysisData.key_concerns.length > 0 && (
-												<div style={{
-													flex: 1, minWidth: "260px",
-													background: "var(--bg-dark)", border: "1px solid var(--border)",
-													borderRadius: "0.75rem", padding: "1.25rem",
-												}}>
-													<h4 style={{ margin: "0 0 0.6rem 0", fontSize: "1.05rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-														<AlertTriangle size={18} /> Key Concerns
-													</h4>
-													{analysisData.key_concerns.map((c, i) => (
-														<p key={i} style={{ fontSize: "0.95rem", color: "var(--text-secondary)", margin: "0 0 0.4rem 0", lineHeight: 1.5 }}>
-															{c}
-														</p>
-													))}
-												</div>
-											)}
-										</div>
-
-										{/* Interview Focus Areas — collapsible */}
-										{analysisData.interview_focus_areas && analysisData.interview_focus_areas.length > 0 && (
-											<div style={{
-												background: "var(--bg-dark)", border: "1px solid var(--border)",
-												borderRadius: "0.75rem", overflow: "hidden",
-											}}>
-												<button
-													onClick={() => toggleSection("interview")}
-													style={{
-														width: "100%", padding: "1rem 1.25rem", background: "none", border: "none",
-														cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-														color: "var(--text-primary)",
-													}}
-												>
-													<h4 style={{ margin: 0, fontSize: "1.05rem", color: "#8b5cf6", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-														<Target size={18} /> Interview Focus Areas
-													</h4>
-													{collapsedSections.interview ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
-												</button>
-												{!collapsedSections.interview && (
-													<div style={{ padding: "0 1.25rem 1.25rem" }}>
-														{analysisData.interview_focus_areas.map((area, i) => (
-															<p key={i} style={{ fontSize: "0.95rem", color: "var(--text-secondary)", margin: "0 0 0.4rem 0", lineHeight: 1.5 }}>
-																{area}
-															</p>
-														))}
-													</div>
-												)}
-											</div>
-										)}
-
-										{/* Agent Breakdowns — collapsible */}
-										{analysisData.agent_results && analysisData.agent_results.length > 0 && (
-											<div>
-												{analysisData.agent_results.map((agent) => (
-													<div
-														key={agent.agent_name}
-														style={{
-															background: "var(--bg-dark)", border: "1px solid var(--border)",
-															borderRadius: "0.75rem", marginBottom: "0.75rem", overflow: "hidden",
-														}}
-													>
-														<button
-															onClick={() => toggleSection(agent.agent_name)}
-															style={{
-																width: "100%", padding: "1rem 1.25rem", background: "none", border: "none",
-																cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-																color: "var(--text-primary)",
-															}}
-														>
-															<h5 style={{ margin: 0, fontSize: "1.05rem" }}>{formatAgentName(agent.agent_name)}</h5>
-															<div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-																<span style={{
-																	fontSize: "1.1rem", fontWeight: 700,
-																	color: getScoreColor(agent.overall_score),
-																}}>
-																	{Math.round(agent.overall_score)}/100
-																</span>
-																{collapsedSections[agent.agent_name] ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
-															</div>
-														</button>
-														{!collapsedSections[agent.agent_name] && (
-															<div style={{ padding: "0 1.25rem 1.25rem" }}>
-																{/* Category score bars */}
-																{agent.category_scores && agent.category_scores.map((cat) => (
-																	<div key={cat.category} style={{ marginBottom: "0.6rem" }}>
-																		<div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem", marginBottom: "0.3rem" }}>
-																			<span style={{ color: "var(--text-secondary)", textTransform: "capitalize" }}>
-																				{cat.category.replace(/_/g, " ")}
-																			</span>
-																			<span style={{ color: getScoreColor(cat.score), fontWeight: 600 }}>
-																				{Math.round(cat.score)}
-																			</span>
-																		</div>
-																		<div style={{
-																			height: "7px", borderRadius: "3.5px",
-																			background: "rgba(255,255,255,0.08)", overflow: "hidden",
-																		}}>
-																			<div style={{
-																				height: "100%", borderRadius: "3.5px",
-																				width: `${Math.min(100, cat.score)}%`,
-																				background: getScoreColor(cat.score),
-																				transition: "width 0.5s ease",
-																			}} />
-																		</div>
-																	</div>
-																))}
-
-																{/* Strengths & Weaknesses */}
-																<div style={{ display: "flex", gap: "1.25rem", marginTop: "1rem", flexWrap: "wrap" }}>
-																	{agent.strengths && agent.strengths.length > 0 && (
-																		<div style={{ flex: 1, minWidth: "220px" }}>
-																			<p style={{ fontSize: "0.9rem", fontWeight: 600, color: "#10b981", margin: "0 0 0.4rem 0" }}>Strengths</p>
-																			{agent.strengths.map((s, i) => (
-																				<p key={i} style={{ fontSize: "0.95rem", color: "var(--text-secondary)", margin: "0 0 0.3rem 0", lineHeight: 1.5 }}>
-																					<CheckCircle size={14} style={{ color: "#10b981", marginRight: "0.4rem", verticalAlign: "middle" }} />
-																					{s}
-																				</p>
-																			))}
-																		</div>
-																	)}
-																	{agent.weaknesses && agent.weaknesses.length > 0 && (
-																		<div style={{ flex: 1, minWidth: "220px" }}>
-																			<p style={{ fontSize: "0.9rem", fontWeight: 600, color: "#ef4444", margin: "0 0 0.4rem 0" }}>Weaknesses</p>
-																			{agent.weaknesses.map((w, i) => (
-																				<p key={i} style={{ fontSize: "0.95rem", color: "var(--text-secondary)", margin: "0 0 0.3rem 0", lineHeight: 1.5 }}>
-																					<XCircle size={14} style={{ color: "#ef4444", marginRight: "0.4rem", verticalAlign: "middle" }} />
-																					{w}
-																				</p>
-																			))}
-																		</div>
-																	)}
-																</div>
-															</div>
-														)}
-													</div>
-												))}
-											</div>
-										)}
-
-										{/* Action Buttons */}
-										<div style={{
-											display: "flex", gap: "0.75rem", justifyContent: "flex-end",
-											paddingTop: "0.75rem", borderTop: "1px solid var(--border)",
-										}}>
-											<button
-												className="btn btn-sm"
-												style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "0.5rem 1.25rem", fontSize: "0.95rem" }}
-												onClick={() => handleAnalysisAction("accept")}
-												disabled={statusUpdating === analysisAppId}
-											>
-												<Star size={16} />
-												Shortlist
-											</button>
-											<button
-												className="btn btn-sm"
-												style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "0.5rem 1.25rem", fontSize: "0.95rem" }}
-												onClick={() => handleAnalysisAction("reject")}
-												disabled={statusUpdating === analysisAppId}
-											>
-												<XCircle size={16} />
-												Reject
-											</button>
-										</div>
-									</div>
+									<AIAnalysisReport
+										data={analysisData}
+										candidate={analysisCandidate}
+										appId={analysisAppId}
+										onAction={handleAnalysisAction}
+										statusUpdating={statusUpdating}
+									/>
 								)}
 							</div>
 						</div>

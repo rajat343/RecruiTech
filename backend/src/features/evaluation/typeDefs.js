@@ -22,6 +22,17 @@ const evaluationTypeDefs = gql`
     weights: JSON
   }
 
+  type DimensionScore {
+    dimension: String!
+    score: Float!
+    rationale: String!
+  }
+
+  type ConcernTag {
+    label: String!
+    severity: String!
+  }
+
   type Evaluation {
     id: ID!
     candidate_id: String!
@@ -34,6 +45,9 @@ const evaluationTypeDefs = gql`
     key_concerns: [String!]!
     interview_focus_areas: [String!]!
     summary: String!
+    dimension_scores: [DimensionScore!]!
+    strength_tags: [String!]!
+    concern_tags: [ConcernTag!]!
     created_at: String
     dag_run_id: String
   }

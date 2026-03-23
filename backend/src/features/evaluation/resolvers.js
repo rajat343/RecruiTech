@@ -78,6 +78,16 @@ const evaluationResolvers = {
         key_concerns: doc.key_concerns || [],
         interview_focus_areas: doc.interview_focus_areas || [],
         summary: doc.summary || "",
+        dimension_scores: (doc.dimension_scores || []).map((ds) => ({
+          dimension: ds.dimension,
+          score: ds.score,
+          rationale: ds.rationale || "",
+        })),
+        strength_tags: doc.strength_tags || [],
+        concern_tags: (doc.concern_tags || []).map((ct) => ({
+          label: ct.label,
+          severity: ct.severity || "moderate",
+        })),
         created_at: doc.created_at
           ? new Date(doc.created_at).toISOString()
           : null,
