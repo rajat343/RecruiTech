@@ -22,7 +22,10 @@ import {
 	Loader,
 	Play,
 	Send,
+	BarChart3,
+	AlertTriangle,
 } from "lucide-react";
+import AIAnalysisReport from "./AIAnalysisReport";
 import "../candidate/CandidateHome.css";
 
 const formatDate = (isoString) => {
@@ -85,6 +88,15 @@ const RecruiterHome = () => {
 	const [interviewStatuses, setInterviewStatuses] = useState({});
 	const [sendingInterview, setSendingInterview] = useState(null);
 	const [releasingResults, setReleasingResults] = useState(null);
+	const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+	const [analysisData, setAnalysisData] = useState(null);
+	const [analysisLoading, setAnalysisLoading] = useState(false);
+	const [analysisCandidate, setAnalysisCandidate] = useState(null);
+	const [analysisAppId, setAnalysisAppId] = useState(null);
+	const [evaluationScoresMap, setEvaluationScoresMap] = useState({});
+	const [triggerLoading, setTriggerLoading] = useState(false);
+	const [triggerSent, setTriggerSent] = useState(false);
+	const [triggerError, setTriggerError] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -493,6 +505,35 @@ const RecruiterHome = () => {
 				})
 			);
 			setInterviewStatuses(ivStatuses);
+
+			// Fetch evaluation scores for all candidates
+			const candidateIds = apps
+				.map((a) => a.candidate?.id)
+				.filter(Boolean);
+			if (candidateIds.length > 0) {
+				try {
+					const scoresData = await graphqlRequest(
+						`
+						query GetEvalScores($job_id: String!, $candidate_ids: [String!]!) {
+							evaluationScores(job_id: $job_id, candidate_ids: $candidate_ids) {
+								candidate_id
+								final_score
+								fit_level
+							}
+						}
+						`,
+						{ job_id: job.id, candidate_ids: candidateIds },
+						token
+					);
+					const scoresMap = {};
+					(scoresData.evaluationScores || []).forEach((s) => {
+						scoresMap[s.candidate_id] = s;
+					});
+					setEvaluationScoresMap(scoresMap);
+				} catch (scoreErr) {
+					console.error("Error fetching evaluation scores:", scoreErr);
+				}
+			}
 		} catch (err) {
 			console.error("Error fetching applicants:", err);
 		} finally {
@@ -576,6 +617,125 @@ const RecruiterHome = () => {
 	const handleCloseApplicantsModal = () => {
 		setShowApplicantsModal(false);
 		setApplicantsJob(null);
+	};
+
+	const handleShowAnalysis = async (app) => {
+		setAnalysisCandidate(app.candidate);
+		setAnalysisAppId(app.id);
+		setAnalysisData(null);
+		setAnalysisLoading(true);
+		setShowApplicantsModal(false);
+		setShowAnalysisModal(true);
+		setTriggerSent(false);
+		setTriggerError(null);
+
+		try {
+			const data = await graphqlRequest(
+				`
+				query GetEvaluation($candidate_id: String!, $job_id: String!) {
+					evaluation(candidate_id: $candidate_id, job_id: $job_id) {
+						id
+						final_score
+						fit_level
+						summary
+						top_strengths
+						key_concerns
+						interview_focus_areas
+						dimension_scores {
+							dimension
+							score
+							rationale
+						}
+						strength_tags
+						concern_tags {
+							label
+							severity
+						}
+						agent_results {
+							agent_name
+							overall_score
+							category_scores {
+								category
+								score
+								weight
+								evidence
+							}
+							strengths
+							weaknesses
+						}
+						weight_profile {
+							name
+							reason
+						}
+						created_at
+					}
+				}
+				`,
+				{ candidate_id: app.candidate.id, job_id: applicantsJob.id },
+				token
+			);
+			setAnalysisData(data.evaluation);
+		} catch (err) {
+			console.error("Error fetching evaluation:", err);
+			setAnalysisData(null);
+		} finally {
+			setAnalysisLoading(false);
+		}
+	};
+
+	const handleBackToApplicants = () => {
+		setShowAnalysisModal(false);
+		setAnalysisData(null);
+		setAnalysisCandidate(null);
+		setAnalysisAppId(null);
+		setShowApplicantsModal(true);
+	};
+
+	const handleCloseAnalysisModal = () => {
+		setShowAnalysisModal(false);
+		setAnalysisData(null);
+		setAnalysisCandidate(null);
+		setAnalysisAppId(null);
+	};
+
+	const handleAnalysisAction = async (action) => {
+		if (!analysisAppId) return;
+		const newStatus = action === "accept" ? "shortlisted" : "rejected";
+		await handleUpdateStatus(analysisAppId, newStatus);
+		setShowAnalysisModal(false);
+		setAnalysisData(null);
+		setAnalysisCandidate(null);
+		setAnalysisAppId(null);
+		setShowApplicantsModal(true);
+	};
+
+	const handleTriggerEvaluation = async () => {
+		if (!analysisCandidate || !applicantsJob) return;
+		setTriggerLoading(true);
+		setTriggerError(null);
+		try {
+			await graphqlRequest(
+				`
+				mutation TriggerEval($candidate_id: String!, $job_id: String!) {
+					triggerEvaluation(candidate_id: $candidate_id, job_id: $job_id)
+				}
+				`,
+				{ candidate_id: analysisCandidate.id, job_id: applicantsJob.id },
+				token
+			);
+			setTriggerSent(true);
+		} catch (err) {
+			console.error("Error triggering evaluation:", err);
+			setTriggerError(err.message || "Failed to trigger evaluation");
+		} finally {
+			setTriggerLoading(false);
+		}
+	};
+
+	const getScoreColor = (score) => {
+		if (score >= 75) return "#10b981";
+		if (score >= 50) return "#f59e0b";
+		return "#ef4444";
 	};
 
 	return (
@@ -1412,6 +1572,81 @@ const RecruiterHome = () => {
 					</div>
 				)}
 
+				{/* AI Analysis Report Modal */}
+				{showAnalysisModal && (
+					<div className="modal-overlay" onClick={handleCloseAnalysisModal}>
+						<div
+							className="modal-content modal-large"
+							onClick={(e) => e.stopPropagation()}
+							style={{ maxHeight: "90vh", maxWidth: "950px", overflow: "hidden", display: "flex", flexDirection: "column" }}
+						>
+							<div className="modal-header">
+								<div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+									<button
+										onClick={handleBackToApplicants}
+										className="btn btn-outline btn-sm"
+										style={{ padding: "0.3rem 0.5rem", marginRight: "0.25rem" }}
+									>
+										<ChevronLeft size={18} />
+									</button>
+									<BarChart3 size={22} style={{ color: "#8b5cf6" }} />
+									<h2 style={{ margin: 0 }}>
+										AI Analysis {analysisCandidate ? `— ${analysisCandidate.first_name} ${analysisCandidate.last_name}` : ""}
+									</h2>
+								</div>
+								<button className="modal-close" onClick={handleCloseAnalysisModal}>
+									<X size={24} />
+								</button>
+							</div>
+							<div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
+								{analysisLoading ? (
+									<div className="loading-spinner" style={{ minHeight: "200px" }}>
+										<div className="spinner"></div>
+										<p>Loading AI analysis...</p>
+									</div>
+								) : !analysisData ? (
+									<div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)" }}>
+										<AlertTriangle size={48} style={{ opacity: 0.4, marginBottom: "1rem", color: "#f59e0b" }} />
+										<h3 style={{ color: "var(--text-primary)" }}>No AI Analysis Available</h3>
+										<p>This candidate has not been evaluated by the AI pipeline yet.</p>
+										{triggerSent ? (
+											<div style={{ marginTop: "1.25rem", padding: "0.75rem 1rem", borderRadius: "0.5rem", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981", fontSize: "0.95rem" }}>
+												<CheckCircle size={16} style={{ verticalAlign: "middle", marginRight: "0.4rem" }} />
+												Evaluation triggered successfully. It may take a few minutes to complete.
+											</div>
+										) : (
+											<div style={{ marginTop: "1.25rem" }}>
+												<button
+													className="btn btn-primary"
+													style={{ padding: "0.6rem 1.5rem", fontSize: "0.95rem" }}
+													onClick={handleTriggerEvaluation}
+													disabled={triggerLoading}
+												>
+													<BarChart3 size={16} />
+													{triggerLoading ? "Triggering..." : "Trigger AI Analysis"}
+												</button>
+												{triggerError && (
+													<p style={{ marginTop: "0.75rem", color: "#ef4444", fontSize: "0.9rem" }}>
+														{triggerError}
+													</p>
+												)}
+											</div>
+										)}
+									</div>
+								) : (
+									<AIAnalysisReport
+										data={analysisData}
+										candidate={analysisCandidate}
+										appId={analysisAppId}
+										onAction={handleAnalysisAction}
+										statusUpdating={statusUpdating}
+									/>
+								)}
+							</div>
+						</div>
+					</div>
+				)}
+
 				{/* Applicants Modal */}
 				{showApplicantsModal && applicantsJob && (
 					<div className="modal-overlay" onClick={handleCloseApplicantsModal}>
@@ -1462,6 +1697,25 @@ const RecruiterHome = () => {
 															{app.candidate?.location_city && ` \u2022 ${app.candidate.location_city}${app.candidate.location_state ? `, ${app.candidate.location_state}` : ""}`}
 														</p>
 													</div>
+													<div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+													{evaluationScoresMap[app.candidate?.id] && (
+														<span
+															style={{
+																padding: "0.25rem 0.65rem",
+																borderRadius: "1rem",
+																fontSize: "0.75rem",
+																fontWeight: 700,
+																background: `${getScoreColor(evaluationScoresMap[app.candidate.id].final_score)}22`,
+																color: getScoreColor(evaluationScoresMap[app.candidate.id].final_score),
+																display: "flex",
+																alignItems: "center",
+																gap: "0.3rem",
+															}}
+														>
+															<BarChart3 size={12} />
+															{Math.round(evaluationScoresMap[app.candidate.id].final_score)}/100
+														</span>
+													)}
 													<span
 														style={{
 															padding: "0.25rem 0.75rem",
@@ -1484,6 +1738,7 @@ const RecruiterHome = () => {
 													>
 														{app.status.charAt(0).toUpperCase() + app.status.slice(1)}
 													</span>
+												</div>
 												</div>
 
 												{app.candidate?.skills && app.candidate.skills.length > 0 && (
@@ -1540,6 +1795,14 @@ const RecruiterHome = () => {
 													)}
 
 													<div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+														<button
+															className="btn btn-sm"
+															style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
+															onClick={() => handleShowAnalysis(app)}
+														>
+															<BarChart3 size={14} />
+															AI Analysis
+														</button>
 														{(() => {
 															const iv = interviewStatuses[app.id];
 															if (iv && iv.status === "completed") {

@@ -8,7 +8,7 @@ import json
 import logging
 import re
 
-from utils.schemas import AgentResult, ConsolidatedReport, WeightProfile
+from utils.schemas import AgentResult, ConcernTag, ConsolidatedReport, DimensionScore, WeightProfile
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +173,31 @@ def consolidate(
             final_score, fit_level, all_strengths, all_weaknesses
         )
 
+    # Parse dimension_scores from qualitative output
+    raw_dims = qualitative.get("dimension_scores", [])
+    dimension_scores = []
+    for d in raw_dims:
+        try:
+            dimension_scores.append(DimensionScore(
+                dimension=d.get("dimension", ""),
+                score=max(0, min(100, float(d.get("score", 50)))),
+                rationale=d.get("rationale", ""),
+            ))
+        except (TypeError, ValueError):
+            continue
+
+    # Parse concern_tags from qualitative output
+    raw_concern_tags = qualitative.get("concern_tags", [])
+    concern_tags = []
+    for ct in raw_concern_tags:
+        if isinstance(ct, dict):
+            concern_tags.append(ConcernTag(
+                label=ct.get("label", ""),
+                severity=ct.get("severity", "moderate"),
+            ))
+        elif isinstance(ct, str):
+            concern_tags.append(ConcernTag(label=ct, severity="moderate"))
+
     report = ConsolidatedReport(
         candidate_id=candidate_id,
         job_id=job_id,
@@ -187,6 +212,9 @@ def consolidate(
             "summary",
             f"Candidate scored {final_score}/100 ({fit_level} fit).",
         ),
+        dimension_scores=dimension_scores,
+        strength_tags=qualitative.get("strength_tags", []),
+        concern_tags=concern_tags,
     )
     return report.model_dump()
 
@@ -271,15 +299,45 @@ def _run_synthesis_agent(
             "Reference actual JD requirements when writing strengths, concerns, and focus areas. "
             "Mention the weight context in the summary "
             "(e.g., 'LeetCode weighted at 15% given the senior nature of this role').\n\n"
+            "IMPORTANT: Also generate unified dimension_scores that cross-reference ALL agent results "
+            "against the job description. Each dimension synthesizes data from multiple agents:\n"
+            "1. Technical Skills Fit — ATS matched/missing skills + GitHub tech stack\n"
+            "2. Experience Depth — ATS experience score + GitHub contribution patterns\n"
+            "3. Project Quality — ATS projects score + GitHub repo analysis\n"
+            "4. Problem Solving — LeetCode scores (if available) + GitHub code complexity\n"
+            "5. Coding Activity — GitHub contributions + LeetCode consistency (if available)\n"
+            "6. Tech Stack Alignment — GitHub languages + LeetCode languages vs JD requirements\n"
+            "7. Education & Fundamentals — ATS education score + LeetCode difficulty range (if available)\n"
+            "8. Growth Potential — GitHub repo diversity + LeetCode progression (if available) + ATS projects showing new tech\n\n"
+            "If an agent (e.g., LeetCode) is not available, still score that dimension using "
+            "the remaining agents. DO NOT set any dimension to 0 just because one source is missing.\n\n"
+            "Also generate:\n"
+            "- strength_tags: 4-8 short skill/trait labels extracted from the strengths "
+            '(e.g., ["React.js", "Node.js", "AWS", "Strong DSA"])\n'
+            "- concern_tags: 3-6 short labels with severity. Each is an object with label and severity "
+            '("critical" for hard blockers, "moderate" for nice-to-haves).\n'
+            '  e.g., [{"label": "GraphQL", "severity": "critical"}, {"label": "Testing", "severity": "moderate"}]\n\n'
             "Return ONLY valid JSON (no markdown, no explanation outside the JSON):\n"
             "{\n"
             '  "top_strengths": ["3-5 synthesized strengths referencing JD requirements"],\n'
             '  "key_concerns": ["2-4 concerns connecting gaps to specific JD requirements"],\n'
             '  "interview_focus_areas": ["3-5 specific interview topics/questions based on gaps and role needs"],\n'
-            '  "summary": "2-3 sentence recruiter-friendly blurb including weight context"\n'
+            '  "summary": "2-3 sentence recruiter-friendly blurb including weight context",\n'
+            '  "dimension_scores": [\n'
+            '    {"dimension": "Technical Skills Fit", "score": 0-100, "rationale": "one concise line"},\n'
+            '    {"dimension": "Experience Depth", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Project Quality", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Problem Solving", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Coding Activity", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Tech Stack Alignment", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Education & Fundamentals", "score": 0-100, "rationale": "..."},\n'
+            '    {"dimension": "Growth Potential", "score": 0-100, "rationale": "..."}\n'
+            "  ],\n"
+            '  "strength_tags": ["React.js", "Node.js", "AWS", ...],\n'
+            '  "concern_tags": [{"label": "GraphQL", "severity": "critical"}, ...]\n'
             "}"
         ),
-        expected_output="Valid JSON with top_strengths, key_concerns, interview_focus_areas, summary",
+        expected_output="Valid JSON with top_strengths, key_concerns, interview_focus_areas, summary, dimension_scores, strength_tags, concern_tags",
         agent=recruiter_agent,
     )
 
@@ -315,4 +373,7 @@ def _mechanical_fallback(
         "interview_focus_areas": [],
         "summary": f"Candidate scored {final_score}/100 ({fit_level} fit). "
         "Automated synthesis unavailable — review individual agent reports for details.",
+        "dimension_scores": [],
+        "strength_tags": [],
+        "concern_tags": [],
     }
