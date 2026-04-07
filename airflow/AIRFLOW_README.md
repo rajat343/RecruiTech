@@ -56,19 +56,20 @@ docker compose down --volumes --remove-orphans
 ### Additional Setup
 
 1. Fill in API keys in `.env`:
-   ```
-   OPENAI_API_KEY=sk-...
-   GITHUB_TOKEN=ghp_...
-   AWS_ACCESS_KEY_ID=AKIA...
-   AWS_SECRET_ACCESS_KEY=...
-   MONGODB_URL=mongodb://host.docker.internal:27017/recruitech
-   ```
+
+    ```
+    OPENAI_API_KEY=sk-...
+    GITHUB_TOKEN=ghp_...
+    AWS_ACCESS_KEY_ID=AKIA...
+    AWS_SECRET_ACCESS_KEY=...
+    MONGODB_URL=mongodb://host.docker.internal:27017/recruitech
+    ```
 
 2. Build the custom image (required — agents need Python deps):
-   ```bash
-   docker compose build
-   docker compose up -d
-   ```
+    ```bash
+    docker compose build
+    docker compose up -d
+    ```
 
 The LLM pool (3 slots) and DAG unpause are handled automatically by `scripts/entrypoint.sh` on webserver startup.
 
@@ -89,6 +90,8 @@ curl -X POST "http://localhost:8080/api/v1/dags/candidate_evaluation/dagRuns" \
     }
   }'
 ```
+
+Airflow username and password = airflow
 
 ### Kafka Trigger
 

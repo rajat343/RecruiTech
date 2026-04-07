@@ -15,7 +15,7 @@ def run_ats_scorer(job_description: str, resume_text: str) -> dict:
     raw_result = score_resume_vs_jd(job_description, resume_text)
 
     # Normalize subscores to 0-100 scale
-    skills_raw = raw_result.get("skills_match_score", 0)       # out of 40
+    skills_raw = raw_result.get("skills_match_score", 0)        # out of 40
     experience_raw = raw_result.get("experience_score", 0)      # out of 30
     projects_raw = raw_result.get("projects_score", 0)          # out of 20
     education_raw = raw_result.get("education_score", 0)        # out of 10

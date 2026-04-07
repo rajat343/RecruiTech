@@ -9,7 +9,7 @@ Expected DAG conf (passed via REST API):
     "job_id": "job456",
     "job_description": "We are looking for a senior Python developer...",
     "resume_s3_url": "s3://recruitech-resumes/abc123/resume.pdf",
-    "github_url": "https://github.com/username",       # optional
+    "github_url": "https://github.com/username",        # optional
     "leetcode_url": "https://leetcode.com/u/username"   # optional
 }
 
