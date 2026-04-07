@@ -6,6 +6,7 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const connectDatabase = require("./config/database");
 const { connectProducer } = require("./config/kafka");
+const { startGrpcServer } = require("./grpc/server");
 const { authenticateSocket } = require("./middleware/auth");
 const registerInterviewHandlers = require("./socket/interviewHandler");
 const interviewRoutes = require("./routes/interview.routes");
@@ -52,6 +53,8 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.INTERVIEW_SERVICE_PORT || 5000;
+const GRPC_ENABLED = process.env.GRPC_ENABLED !== "false";
+const GRPC_PORT = parseInt(process.env.GRPC_PORT || "50051", 10);
 
 const start = async () => {
 	try {
@@ -65,6 +68,12 @@ const start = async () => {
 			console.log(`WebSocket server ready`);
 			console.log(`REST API at http://localhost:${PORT}/api/interviews`);
 		});
+
+		if (GRPC_ENABLED) {
+			await startGrpcServer(GRPC_PORT);
+		} else {
+			console.log("gRPC disabled (GRPC_ENABLED=false)");
+		}
 	} catch (error) {
 		console.error("Failed to start interview service:", error);
 		process.exit(1);

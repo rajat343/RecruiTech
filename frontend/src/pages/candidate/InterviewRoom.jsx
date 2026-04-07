@@ -72,6 +72,7 @@ const InterviewRoom = () => {
 	const silentSinceRef = useRef(null);
 	const graceTimerRef = useRef(null);
 	const isProcessingRef = useRef(false);
+	const webrtcOfferSentRef = useRef(false);
 
 	// Keep transcriptRef in sync
 	useEffect(() => {
@@ -86,9 +87,11 @@ const InterviewRoom = () => {
 				audio: true,
 			});
 			streamRef.current = stream;
-			if (videoRef.current) {
-				videoRef.current.srcObject = stream;
-			}
+			requestAnimationFrame(() => {
+				if (videoRef.current) {
+					videoRef.current.srcObject = stream;
+				}
+			});
 			return stream;
 		} catch (err) {
 			console.warn("Camera/mic access denied:", err);
@@ -98,9 +101,18 @@ const InterviewRoom = () => {
 		}
 	}, []);
 
-	// ─── WebRTC: peer connection ───
+	// ─── WebRTC: peer connection (socket signaling handlers registered once in connectSocket) ───
 	const setupWebRTC = useCallback(async (socket, stream) => {
-		if (!stream) return;
+		if (!stream || !socket?.connected || webrtcOfferSentRef.current) return;
+
+		if (peerConnectionRef.current) {
+			try {
+				peerConnectionRef.current.close();
+			} catch {
+				/* ignore */
+			}
+			peerConnectionRef.current = null;
+		}
 
 		const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 		peerConnectionRef.current = pc;
@@ -110,7 +122,7 @@ const InterviewRoom = () => {
 		});
 
 		pc.onicecandidate = (event) => {
-			if (event.candidate) {
+			if (event.candidate && socket.connected) {
 				socket.emit("webrtc-ice-candidate", {
 					candidate: event.candidate.candidate,
 					sdpMid: event.candidate.sdpMid,
@@ -125,30 +137,11 @@ const InterviewRoom = () => {
 				setWebrtcConnected(false);
 		};
 
-		socket.on("webrtc-answer", async ({ sdp, type }) => {
-			try {
-				await pc.setRemoteDescription(new RTCSessionDescription({ sdp, type }));
-			} catch (err) {
-				console.error("Failed to set remote description:", err);
-			}
-		});
-
-		socket.on("webrtc-ice-candidate", async ({ candidate, sdpMid, sdpMLineIndex }) => {
-			try {
-				if (candidate) {
-					await pc.addIceCandidate(new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex }));
-				}
-			} catch (err) {
-				console.error("Failed to add ICE candidate:", err);
-			}
-		});
-
-		socket.on("webrtc-audio-connected", () => setWebrtcConnected(true));
-
 		try {
 			const offer = await pc.createOffer();
 			await pc.setLocalDescription(offer);
 			socket.emit("webrtc-offer", { sdp: offer.sdp, type: offer.type });
+			webrtcOfferSentRef.current = true;
 		} catch (err) {
 			console.error("Failed to create WebRTC offer:", err);
 		}
@@ -295,6 +288,40 @@ const InterviewRoom = () => {
 		}
 	}, [stopSilenceMonitor]);
 
+	/** Stop mic/camera tracks, peer connection, and recorders (e.g. when interview ends). */
+	const releaseMediaAndPeer = useCallback(() => {
+		stopRecording();
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
+		if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive") {
+			videoRecorderRef.current.stop();
+		}
+		if (peerConnectionRef.current) {
+			try {
+				peerConnectionRef.current.close();
+			} catch {
+				/* ignore */
+			}
+			peerConnectionRef.current = null;
+		}
+		if (streamRef.current) {
+			streamRef.current.getTracks().forEach((t) => t.stop());
+			streamRef.current = null;
+		}
+		if (videoRef.current) {
+			videoRef.current.srcObject = null;
+		}
+		if (audioContextRef.current) {
+			audioContextRef.current.close().catch(() => {});
+			audioContextRef.current = null;
+		}
+		analyserRef.current = null;
+		webrtcOfferSentRef.current = false;
+		setWebrtcConnected(false);
+	}, [stopRecording]);
+
 	// ─── Auto-submit on silence ───
 	const autoSubmitAnswer = useCallback(() => {
 		const answer = transcriptRef.current.trim();
@@ -372,8 +399,50 @@ const InterviewRoom = () => {
 			transports: ["websocket", "polling"],
 		});
 
+		let capsReceived = false;
+		let webrtcCapable = false;
+
+		const tryStartWebRTC = async () => {
+			if (!capsReceived || !webrtcCapable || webrtcOfferSentRef.current) return;
+			const stream = streamRef.current;
+			if (!stream || !socket.connected) return;
+			await setupWebRTC(socket, stream);
+		};
+
+		const emitJoin = () => {
+			if (socket.connected) {
+				socket.emit("join-interview", { interviewToken });
+			}
+		};
+
+		// Signaling handlers registered once — they always target peerConnectionRef.current
+		socket.on("webrtc-answer", async ({ sdp, type }) => {
+			const pc = peerConnectionRef.current;
+			if (!pc) return;
+			try {
+				await pc.setRemoteDescription(new RTCSessionDescription({ sdp, type }));
+			} catch (err) {
+				console.error("Failed to set remote description:", err);
+			}
+		});
+
+		socket.on("webrtc-ice-candidate", async ({ candidate, sdpMid, sdpMLineIndex }) => {
+			const pc = peerConnectionRef.current;
+			if (!pc || !candidate) return;
+			try {
+				await pc.addIceCandidate(
+					new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex })
+				);
+			} catch (err) {
+				console.error("Failed to add ICE candidate:", err);
+			}
+		});
+
+		socket.on("webrtc-audio-connected", () => setWebrtcConnected(true));
+
 		socket.on("connect", () => {
-			socket.emit("join-interview", { interviewToken });
+			emitJoin();
+			tryStartWebRTC();
 		});
 
 		socket.on("connect_error", (err) => {
@@ -382,9 +451,10 @@ const InterviewRoom = () => {
 			setErrorMessage("Failed to connect to interview service");
 		});
 
-		socket.on("capabilities", async () => {
-			const stream = streamRef.current;
-			if (stream) await setupWebRTC(socket, stream);
+		socket.on("capabilities", async (caps) => {
+			webrtcCapable = !!caps?.webrtc;
+			capsReceived = true;
+			await tryStartWebRTC();
 		});
 
 		socket.on("transcription", ({ text }) => {
@@ -413,6 +483,9 @@ const InterviewRoom = () => {
 		socket.on("interview-already-completed", () => {
 			setStatus("completed");
 			setResults({ completed: true });
+			releaseMediaAndPeer();
+			socket.disconnect();
+			socketRef.current = null;
 		});
 
 		socket.on("new-question", (data) => {
@@ -432,13 +505,15 @@ const InterviewRoom = () => {
 			setStatus("completed");
 			setResults({ completed: true });
 			isProcessingRef.current = false;
-			if (timerRef.current) clearInterval(timerRef.current);
 			stopRecording();
 
 			if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive") {
 				videoRecorderRef.current.stop();
 			}
 			await uploadRecording();
+			releaseMediaAndPeer();
+			socket.disconnect();
+			socketRef.current = null;
 		});
 
 		socket.on("error", (data) => {
@@ -449,6 +524,11 @@ const InterviewRoom = () => {
 		});
 
 		socketRef.current = socket;
+
+		if (socket.connected) {
+			emitJoin();
+			tryStartWebRTC();
+		}
 	}, [
 		authToken,
 		interviewToken,
@@ -457,21 +537,27 @@ const InterviewRoom = () => {
 		uploadRecording,
 		onQuestionReceived,
 		stopRecording,
+		releaseMediaAndPeer,
 	]);
 
 	useEffect(() => {
+		let alive = true;
+
 		const init = async () => {
 			await initializeMedia();
+			if (!alive) return;
 			startSilenceDetection();
 			await connectSocket();
 		};
 		init();
 
 		return () => {
+			alive = false;
 			isRecordingRef.current = false;
-			if (socketRef.current) socketRef.current.disconnect();
-			if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-			if (peerConnectionRef.current) peerConnectionRef.current.close();
+			if (socketRef.current) {
+				socketRef.current.disconnect();
+				socketRef.current = null;
+			}
 			if (audioIntervalRef.current) clearTimeout(audioIntervalRef.current);
 			if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive")
 				audioRecorderRef.current.stop();
@@ -480,7 +566,27 @@ const InterviewRoom = () => {
 			if (timerRef.current) clearInterval(timerRef.current);
 			if (silenceFrameRef.current) cancelAnimationFrame(silenceFrameRef.current);
 			if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
-			if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
+			if (peerConnectionRef.current) {
+				try {
+					peerConnectionRef.current.close();
+				} catch {
+					/* ignore */
+				}
+				peerConnectionRef.current = null;
+			}
+			if (streamRef.current) {
+				streamRef.current.getTracks().forEach((t) => t.stop());
+				streamRef.current = null;
+			}
+			const videoEl = videoRef.current;
+			if (videoEl) {
+				videoEl.srcObject = null;
+			}
+			if (audioContextRef.current) {
+				audioContextRef.current.close().catch(() => {});
+				audioContextRef.current = null;
+			}
+			webrtcOfferSentRef.current = false;
 		};
 	}, [initializeMedia, startSilenceDetection, connectSocket]);
 
@@ -494,14 +600,14 @@ const InterviewRoom = () => {
 	};
 
 	const leaveInterview = () => {
-		isRecordingRef.current = false;
-		if (socketRef.current) socketRef.current.disconnect();
-		if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-		if (peerConnectionRef.current) peerConnectionRef.current.close();
+		releaseMediaAndPeer();
+		if (socketRef.current) {
+			socketRef.current.disconnect();
+			socketRef.current = null;
+		}
 		if (audioIntervalRef.current) clearTimeout(audioIntervalRef.current);
 		if (silenceFrameRef.current) cancelAnimationFrame(silenceFrameRef.current);
 		if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
-		if (timerRef.current) clearInterval(timerRef.current);
 		navigate("/candidate/jobs");
 	};
 
@@ -683,6 +789,10 @@ const InterviewRoom = () => {
 						<div className="interview-loading">
 							<Loader size={32} className="spin" />
 							<p>Setting up your interview...</p>
+							<p className="permission-hint">
+								When your browser asks, allow camera and microphone so we can run the
+								session and WebRTC.
+							</p>
 						</div>
 					)}
 

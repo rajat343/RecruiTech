@@ -3,6 +3,9 @@ const Application = require("../../../models/application.schema");
 const Candidate = require("../../../models/candidate.schema");
 const Recruiter = require("../../../models/recruiter.schema");
 const Job = require("../../../models/job.schema");
+const {
+	createInterviewSessionGrpc,
+} = require("../../../clients/interviewControlGrpc");
 
 /**
  * Recruiter sends an AI interview to a candidate for a specific application.
@@ -33,19 +36,28 @@ const sendAiInterview = async (recruiterId, { application_id }) => {
 		is_deleted: false,
 	});
 
-	const interview = new Interview({
-		application_id,
-		candidate_id: application.candidate_id,
-		user_id: application.user_id,
-		job_id: application.job_id,
+	const grpcRes = await createInterviewSessionGrpc({
+		application_id: String(application_id),
+		candidate_id: String(application.candidate_id),
+		user_id: String(application.user_id),
+		job_id: String(application.job_id),
 		resume_text: "",
 		resume_url: candidate?.resume_url || application.resume_url || "",
 		job_title: job.title,
 		job_description: job.description,
 	});
 
-	await interview.save();
-	return interview;
+	if (!grpcRes.ok) {
+		throw new Error(
+			grpcRes.error_message || "interview-service gRPC create failed",
+		);
+	}
+
+	const created = await Interview.findById(grpcRes.interview_id);
+	if (!created) {
+		throw new Error("Interview created via gRPC but not found in DB");
+	}
+	return created;
 };
 
 /**

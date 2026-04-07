@@ -398,6 +398,16 @@
 	color: var(--text-secondary, #a1a1aa);
 }
 
+.interview-loading .permission-hint {
+	max-width: 22rem;
+	margin: 0;
+	font-size: 0.85rem;
+	line-height: 1.45;
+	text-align: center;
+	color: var(--text-secondary, #a1a1aa);
+	opacity: 0.9;
+}
+
 /* Feedback toast */
 .feedback-toast {
 	display: flex;

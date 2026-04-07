@@ -45,6 +45,9 @@ FRONTEND_URL=http://localhost:5173
 SESSION_SECRET=my-session-secret-for-development
 MONGODB_URL=mongodb://localhost:27017/recruitech
 
+# AI interviews: backend creates sessions via interview-service gRPC (same MongoDB)
+INTERVIEW_SERVICE_GRPC_ADDRESS=localhost:50051
+
 # OAuth is optional - leave these empty for now
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -67,7 +70,16 @@ VITE_GRAPHQL_URL=http://localhost:4000/graphql
 
 ### 4. Start the Application
 
-**Terminal 1 - Backend:**
+**Terminal 1 - Interview service** (required for recruiter “send AI interview”; uses same `MONGODB_URL` as backend):
+
+```bash
+cd interview-service
+cp .env.example .env   # first time: set JWT_SECRET and MONGODB_URL to match backend
+npm install
+npm run dev
+```
+
+**Terminal 2 - Backend:**
 
 ```bash
 cd backend
@@ -82,12 +94,14 @@ You should see:
 ⚠️  Google OAuth not configured - add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env to enable
 ```
 
-**Terminal 2 - Frontend:**
+**Terminal 3 - Frontend:**
 
 ```bash
 cd frontend
 npm run dev
 ```
+
+If `INTERVIEW_SERVICE_GRPC_ADDRESS` is missing or interview-service is down, sending an AI interview from the recruiter UI will fail with a gRPC / connection error.
 
 ### 5. Access the Application
 
