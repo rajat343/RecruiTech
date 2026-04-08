@@ -11,56 +11,56 @@ RecruiTech is a modern, full-stack recruitment platform that revolutionizes hiri
 
 ### For Candidates ✅ Implemented
 
--   🚀 **Quick Signup** - Register with email/password or Google OAuth
--   📝 **Profile Management** - Comprehensive profile with resume, GitHub, LeetCode, and portfolio links
--   ✏️ **Edit Profile** - Update personal info, URLs, and job search status anytime
--   📊 **Dashboard** - View profile status and recommended jobs
--   🎯 **Status Management** - Set job search status (actively/casually looking, not looking)
+- 🚀 **Quick Signup** - Register with email/password or Google OAuth
+- 📝 **Profile Management** - Comprehensive profile with resume, GitHub, LeetCode, and portfolio links
+- ✏️ **Edit Profile** - Update personal info, URLs, and job search status anytime
+- 📊 **Dashboard** - View profile status and recommended jobs
+- 🎯 **Status Management** - Set job search status (actively/casually looking, not looking)
 
 ### For Recruiters ✅ Implemented
 
--   💼 **Company Management** - Create or join verified companies
--   ✏️ **Edit Profiles** - Update personal profile and company information
--   📈 **Dashboard** - View active job postings and hiring metrics
--   🔍 **Company Search** - Find and join existing companies with real-time search
--   ⚡ **Quick Actions** - Easy access to profile editing and candidate search
+- 💼 **Company Management** - Create or join verified companies
+- ✏️ **Edit Profiles** - Update personal profile and company information
+- 📈 **Dashboard** - View active job postings and hiring metrics
+- 🔍 **Company Search** - Find and join existing companies with real-time search
+- ⚡ **Quick Actions** - Easy access to profile editing and candidate search
 
 ### Coming Soon 🚧
 
--   📢 **Job Posting** - Post jobs with detailed requirements
--   👥 **Candidate Search** - Find the perfect candidates with AI assistance
--   🎯 **Job Matching** - AI-powered job recommendations based on skills
--   📊 **Application Tracking** - Track all applications in one place
--   🎥 **Video Screening** - Complete video interviews at your convenience
+- 📢 **Job Posting** - Post jobs with detailed requirements
+- 👥 **Candidate Search** - Find the perfect candidates with AI assistance
+- 🎯 **Job Matching** - AI-powered job recommendations based on skills
+- 📊 **Application Tracking** - Track all applications in one place
+- 🎥 **Video Screening** - Complete video interviews at your convenience
 
 ### Authentication
 
--   🔐 **Secure Login** - Email/password authentication with JWT
--   🌐 **Google OAuth** - One-click signup with Google
--   👤 **Role-Based Access** - Separate flows for candidates and recruiters
--   🔒 **Protected Routes** - Secure access to user-specific content
+- 🔐 **Secure Login** - Email/password authentication with JWT
+- 🌐 **Google OAuth** - One-click signup with Google
+- 👤 **Role-Based Access** - Separate flows for candidates and recruiters
+- 🔒 **Protected Routes** - Secure access to user-specific content
 
 ## 🛠️ Tech Stack
 
 ### Frontend
 
--   **React 18** - Modern UI library
--   **Vite** - Lightning-fast build tool
--   **React Router** - Client-side routing
--   **Axios** - HTTP client for API calls
--   **Lucide React** - Beautiful icons
--   **Custom GraphQL utility** - GraphQL client using Axios
+- **React 18** - Modern UI library
+- **Vite** - Lightning-fast build tool
+- **React Router** - Client-side routing
+- **Axios** - HTTP client for API calls
+- **Lucide React** - Beautiful icons
+- **Custom GraphQL utility** - GraphQL client using Axios
 
 ### Backend
 
--   **Node.js** - JavaScript runtime
--   **Express** - Web framework
--   **Apollo Server** - GraphQL server
--   **MongoDB** - NoSQL database
--   **Mongoose** - ODM for MongoDB
--   **Passport.js** - Authentication middleware
--   **JWT** - JSON Web Tokens for auth
--   **bcrypt** - Password hashing
+- **Node.js** - JavaScript runtime
+- **Express** - Web framework
+- **Apollo Server** - GraphQL server
+- **MongoDB** - NoSQL database
+- **Mongoose** - ODM for MongoDB
+- **Passport.js** - Authentication middleware
+- **JWT** - JSON Web Tokens for auth
+- **bcrypt** - Password hashing
 
 ## 📁 Project Structure
 
@@ -120,9 +120,9 @@ RecruiTech/
 
 ### Prerequisites
 
--   Node.js (v20+)
--   MongoDB (v8+)
--   npm or yarn
+- Node.js (v20+)
+- MongoDB (v8+)
+- npm or yarn
 
 ### Installation
 
@@ -210,12 +210,10 @@ To enable Google OAuth authentication:
 ### Quick Steps:
 
 1. **Create Google Cloud Project**
-
     - Go to [Google Cloud Console](https://console.cloud.google.com/)
     - Create a new project named "RecruiTech"
 
 2. **Configure OAuth Consent Screen**
-
     - Go to "APIs & Services" → "OAuth consent screen"
     - Select "External" user type
     - Fill in app name, support email, and developer contact
@@ -223,7 +221,6 @@ To enable Google OAuth authentication:
     - Add test users (your email) for development
 
 3. **Create OAuth Credentials**
-
     - Go to "APIs & Services" → "Credentials"
     - Create "OAuth client ID" → "Web application"
     - Add Authorized JavaScript origins: `http://localhost:5173`
@@ -246,7 +243,6 @@ To enable Google OAuth authentication:
 ### Candidate Flow
 
 1. **Signup**
-
     - Choose "Candidate" role
     - Enter email/password or use Google OAuth
     - Complete profile with:
@@ -259,7 +255,6 @@ To enable Google OAuth authentication:
         - Job search status
 
 2. **Login**
-
     - Enter email/password or use Google OAuth
     - Redirected to candidate dashboard
 
@@ -272,7 +267,6 @@ To enable Google OAuth authentication:
 ### Recruiter Flow
 
 1. **Signup**
-
     - Choose "Recruiter" role
     - Enter email/password or use Google OAuth
     - Select or create company:
@@ -283,7 +277,6 @@ To enable Google OAuth authentication:
         - Company affiliation
 
 2. **Login**
-
     - Enter email/password or use Google OAuth
     - Redirected to recruiter dashboard
 
@@ -297,52 +290,52 @@ To enable Google OAuth authentication:
 
 The application features a modern dark theme with:
 
--   **Primary Colors**: Dark blue (#0f1c2e, #1a2c42)
--   **Accent Color**: Cyan (#22d3ee)
--   **Background**: Deep dark (#0a1525)
--   **Typography**: Inter font family
--   **UI Elements**: Smooth animations, rounded corners, subtle shadows
+- **Primary Colors**: Dark blue (#0f1c2e, #1a2c42)
+- **Accent Color**: Cyan (#22d3ee)
+- **Background**: Deep dark (#0a1525)
+- **Typography**: Inter font family
+- **UI Elements**: Smooth animations, rounded corners, subtle shadows
 
 ## 🔒 Security Features
 
--   **Password Hashing**: bcrypt with salt rounds
--   **JWT Authentication**: Secure token-based auth
--   **OAuth 2.0**: Industry-standard OAuth flow
--   **Protected Routes**: Role-based access control
--   **Input Validation**: Server-side validation for all inputs
--   **CORS**: Configured for specific origins
--   **Rate Limiting**: API request throttling
--   **Helmet**: Security headers for Express
+- **Password Hashing**: bcrypt with salt rounds
+- **JWT Authentication**: Secure token-based auth
+- **OAuth 2.0**: Industry-standard OAuth flow
+- **Protected Routes**: Role-based access control
+- **Input Validation**: Server-side validation for all inputs
+- **CORS**: Configured for specific origins
+- **Rate Limiting**: API request throttling
+- **Helmet**: Security headers for Express
 
 ## 📊 Database Schema
 
 ### User
 
--   email, password, google_id, role, profile_pic, is_admin, metadata
+- email, password, google_id, role, profile_pic, is_admin, metadata
 
 ### Candidate
 
--   user_id, first_name, last_name, email, phone_number
--   resume_url, github_url, leetcode_url, portfolio_url
--   profile_summary, status (actively_looking, casually_looking, not_looking)
+- user_id, first_name, last_name, email, phone_number
+- resume_url, github_url, leetcode_url, portfolio_url
+- profile_summary, status (actively_looking, casually_looking, not_looking)
 
 ### Recruiter
 
--   user_id, first_name, last_name, email, phone_number
--   company_id, verification_status
+- user_id, first_name, last_name, email, phone_number
+- company_id, verification_status
 
 ### Company
 
--   created_by, name, domain, is_verified
+- created_by, name, domain, is_verified
 
 ## 🧪 API Endpoints
 
 ### REST Endpoints
 
--   `GET /health` - Health check
--   `GET /auth/google` - Initiate Google OAuth
--   `GET /auth/google/callback` - OAuth callback
--   `POST /auth/google/register` - Complete OAuth registration
+- `GET /health` - Health check
+- `GET /auth/google` - Initiate Google OAuth
+- `GET /auth/google/callback` - OAuth callback
+- `POST /auth/google/register` - Complete OAuth registration
 
 ### GraphQL Queries & Mutations
 
@@ -350,21 +343,21 @@ See the GraphQL Playground at http://localhost:4000/graphql for full schema docu
 
 ## 🛣️ Roadmap
 
--   [x] User authentication (Email/Password + Google OAuth)
--   [x] Role-based signup and login flows
--   [x] Candidate profile management
--   [x] Recruiter profile management
--   [x] Company creation and selection
--   [x] Profile editing for candidates and recruiters
--   [ ] Job posting and search functionality
--   [ ] AI-powered candidate matching
--   [ ] Application tracking system
--   [ ] Video screening integration
--   [ ] Real-time messaging between candidates and recruiters
--   [ ] Advanced analytics dashboard
--   [ ] Email notifications
--   [ ] Mobile app (React Native)
--   [ ] Multiple OAuth providers (LinkedIn, GitHub)
+- [x] User authentication (Email/Password + Google OAuth)
+- [x] Role-based signup and login flows
+- [x] Candidate profile management
+- [x] Recruiter profile management
+- [x] Company creation and selection
+- [x] Profile editing for candidates and recruiters
+- [ ] Job posting and search functionality
+- [ ] AI-powered candidate matching
+- [ ] Application tracking system
+- [ ] Video screening integration
+- [ ] Real-time messaging between candidates and recruiters
+- [ ] Advanced analytics dashboard
+- [ ] Email notifications
+- [ ] Mobile app (React Native)
+- [ ] Multiple OAuth providers (LinkedIn, GitHub)
 
 ## 🤝 Contributing
 
@@ -382,17 +375,21 @@ This project is licensed under the MIT License.
 
 ## 👥 Authors
 
--   **Your Name** - Initial work
+- **Your Name** - Initial work
 
 ## 🙏 Acknowledgments
 
--   Icons by [Lucide](https://lucide.dev/)
--   Design inspiration from modern recruitment platforms
--   Built with ❤️ using React and Node.js
+- Icons by [Lucide](https://lucide.dev/)
+- Design inspiration from modern recruitment platforms
+- Built with ❤️ using React and Node.js
 
 ## 📧 Support
 
 For support, email support@recruitech.com or open an issue in the repository.
+
+## Project summary
+
+RecruiTech is an end-to-end technical recruiting platform that brings job posting, candidate review, and live AI-led interviews into a single cohesive workflow, eliminating the context switching that comes with fragmented hiring tools. The platform automates candidate evaluation through CrewAI agents orchestrated by Apache Airflow and Kafka, enriching profiles from resumes, job descriptions, and public engineer signals without any manual effort. It uses Elasticsearch to power full-text search across jobs and talent, gRPC handles fast typed communication between the core platform and the backend services, and GraphQL serves as the primary API contract for all data flowing in and out of the application. Live AI interviews run over WebSockets for real-time signaling and WebRTC for camera and audio, giving candidates a responsive room while the AI stack follows and processes their answers as they happen.
 
 ---
 
