@@ -1,10 +1,11 @@
 const { Kafka } = require("kafkajs");
 
-const bootstrap =
-	process.env.KAFKA_BOOTSTRAP_SERVERS || "localhost:9092";
+const bootstrap = process.env.KAFKA_BOOTSTRAP_SERVERS || "localhost:9092";
 
 const kafka = new Kafka({
 	clientId: "interview-service",
+	// Todo: Discuss with Shantanu
+	// brokers: [process.env.KAFKA_BOOTSTRAP_SERVERS || "localhost:9092"],
 	brokers: bootstrap.split(",").map((s) => s.trim()),
 });
 
