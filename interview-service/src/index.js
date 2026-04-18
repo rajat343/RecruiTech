@@ -52,7 +52,7 @@ io.on("connection", (socket) => {
 	});
 });
 
-const PORT = process.env.INTERVIEW_SERVICE_PORT || 5000;
+const PORT = process.env.INTERVIEW_SERVICE_PORT || 5001;
 const GRPC_ENABLED = process.env.GRPC_ENABLED !== "false";
 const GRPC_PORT = parseInt(process.env.GRPC_PORT || "50051", 10);
 

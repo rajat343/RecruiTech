@@ -22,7 +22,7 @@ import {
 import "./InterviewRoom.css";
 
 const INTERVIEW_SERVICE_URL =
-	import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5000";
+	import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5001";
 
 const AUDIO_CHUNK_INTERVAL = 4000;
 const SILENCE_THRESHOLD = 12;
