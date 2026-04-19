@@ -11,6 +11,7 @@ const formatJob = (job) => ({
   experience_level: job.experience_level,
   location_type: job.location_type,
   location: job.location,
+  deadline: job.deadline ? job.deadline.toISOString() : null,
   salary_min: job.salary_min,
   salary_max: job.salary_max,
   salary_currency: job.salary_currency,

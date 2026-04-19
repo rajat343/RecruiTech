@@ -19,13 +19,27 @@ const createJob = async (jobData, userId) => {
     throw new Error("salary_min cannot be greater than salary_max");
   }
 
-  const job = new Job({
+  const jobPayload = {
     ...jobData,
     company_id: companyId,
     recruiter_id: recruiter._id.toString(),
     skills: jobData.skills || [],
     salary_currency: jobData.salary_currency || "USD",
-  });
+  };
+
+  if (!jobData.deadline) {
+    throw new Error("Application deadline is required");
+  }
+  const deadlineDate = new Date(jobData.deadline);
+  if (Number.isNaN(deadlineDate.getTime())) {
+    throw new Error("Invalid deadline date");
+  }
+  if (deadlineDate.getTime() < Date.now() - 24 * 60 * 60 * 1000) {
+    throw new Error("Application deadline must be today or in the future");
+  }
+  jobPayload.deadline = deadlineDate;
+
+  const job = new Job(jobPayload);
 
   await job.save();
   return job;

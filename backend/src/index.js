@@ -58,8 +58,6 @@ app.use(cors(corsOptions));
 // 	message: "Too many requests from this IP, please try again later.",
 // });
 
-app.use("/graphql");
-
 // Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

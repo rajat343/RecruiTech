@@ -12,20 +12,10 @@ import {
 	X,
 	User,
 	Building2,
-	FileText,
-	ChevronLeft,
-	CheckCircle,
-	XCircle,
-	Star,
-	ExternalLink,
-	Video,
-	Loader,
-	Play,
-	Send,
-	BarChart3,
-	AlertTriangle,
+	ArrowRight,
+	CalendarDays,
+	MapPin,
 } from "lucide-react";
-import AIAnalysisReport from "./AIAnalysisReport";
 import "../candidate/CandidateHome.css";
 
 const formatDate = (isoString) => {
@@ -71,6 +61,7 @@ const RecruiterHome = () => {
 		experience_level: "mid",
 		location_type: "onsite",
 		location: "",
+		deadline: "",
 		salary_min: "",
 		salary_max: "",
 		salary_currency: "USD",
@@ -79,24 +70,7 @@ const RecruiterHome = () => {
 	});
 	const [jobSaving, setJobSaving] = useState(false);
 	const [jobError, setJobError] = useState(null);
-	const [showApplicantsModal, setShowApplicantsModal] = useState(false);
-	const [applicantsJob, setApplicantsJob] = useState(null);
-	const [applicants, setApplicants] = useState([]);
-	const [applicantsLoading, setApplicantsLoading] = useState(false);
 	const [totalApplicants, setTotalApplicants] = useState(0);
-	const [statusUpdating, setStatusUpdating] = useState(null);
-	const [interviewStatuses, setInterviewStatuses] = useState({});
-	const [sendingInterview, setSendingInterview] = useState(null);
-	const [releasingResults, setReleasingResults] = useState(null);
-	const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-	const [analysisData, setAnalysisData] = useState(null);
-	const [analysisLoading, setAnalysisLoading] = useState(false);
-	const [analysisCandidate, setAnalysisCandidate] = useState(null);
-	const [analysisAppId, setAnalysisAppId] = useState(null);
-	const [evaluationScoresMap, setEvaluationScoresMap] = useState({});
-	const [triggerLoading, setTriggerLoading] = useState(false);
-	const [triggerSent, setTriggerSent] = useState(false);
-	const [triggerError, setTriggerError] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -131,6 +105,7 @@ const RecruiterHome = () => {
 							experience_level
 							location_type
 							location
+							deadline
 							salary_min
 							salary_max
 							salary_currency
@@ -347,6 +322,7 @@ const RecruiterHome = () => {
 			experience_level: "mid",
 			location_type: "onsite",
 			location: "",
+			deadline: "",
 			salary_min: "",
 			salary_max: "",
 			salary_currency: "USD",
@@ -385,6 +361,17 @@ const RecruiterHome = () => {
 				);
 			}
 
+			if (!jobForm.deadline) {
+				throw new Error("Application deadline is required.");
+			}
+			const deadlineDate = new Date(jobForm.deadline);
+			if (Number.isNaN(deadlineDate.getTime())) {
+				throw new Error("Invalid deadline date.");
+			}
+			if (deadlineDate.getTime() < Date.now() - 24 * 60 * 60 * 1000) {
+				throw new Error("Application deadline must be today or in the future.");
+			}
+
 			const skillsArray = jobForm.skills
 				? jobForm.skills
 						.split(",")
@@ -400,6 +387,7 @@ const RecruiterHome = () => {
 					experience_level: jobForm.experience_level,
 					location_type: jobForm.location_type,
 					location: jobForm.location.trim(),
+					deadline: deadlineDate.toISOString(),
 					salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
 					salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
 					salary_currency: jobForm.salary_currency || null,
@@ -419,6 +407,7 @@ const RecruiterHome = () => {
 						experience_level
 						location_type
 						location
+						deadline
 						salary_min
 						salary_max
 						salary_currency
@@ -443,299 +432,8 @@ const RecruiterHome = () => {
 		}
 	};
 
-	const handleViewApplicants = async (job) => {
-		setApplicantsJob(job);
-		setShowApplicantsModal(true);
-		setApplicantsLoading(true);
-		setApplicants([]);
-		setInterviewStatuses({});
-
-		try {
-			const data = await graphqlRequest(
-				`
-				query GetApplicants($job_id: ID!) {
-					applicationsForJob(job_id: $job_id, limit: 50) {
-						id
-						status
-						cover_letter
-						resume_url
-						createdAt
-						candidate {
-							id
-							first_name
-							last_name
-							email
-							phone_number
-							skills
-							linkedin_url
-							github_url
-							portfolio_url
-							profile_summary
-							location_city
-							location_state
-						}
-					}
-				}
-				`,
-				{ job_id: job.id },
-				token
-			);
-			const apps = data.applicationsForJob || [];
-			setApplicants(apps);
-
-			const ivStatuses = {};
-			await Promise.all(
-				apps.map(async (app) => {
-					try {
-						const ivData = await graphqlRequest(
-							`query GetInterview($application_id: ID!) {
-								interviewForApplication(application_id: $application_id) {
-									id status overall_score interview_token recording_url results_released
-								}
-							}`,
-							{ application_id: app.id },
-							token
-						);
-						if (ivData.interviewForApplication) {
-							ivStatuses[app.id] = ivData.interviewForApplication;
-						}
-					} catch {
-						// no interview for this application
-					}
-				})
-			);
-			setInterviewStatuses(ivStatuses);
-
-			// Fetch evaluation scores for all candidates
-			const candidateIds = apps
-				.map((a) => a.candidate?.id)
-				.filter(Boolean);
-			if (candidateIds.length > 0) {
-				try {
-					const scoresData = await graphqlRequest(
-						`
-						query GetEvalScores($job_id: String!, $candidate_ids: [String!]!) {
-							evaluationScores(job_id: $job_id, candidate_ids: $candidate_ids) {
-								candidate_id
-								final_score
-								fit_level
-							}
-						}
-						`,
-						{ job_id: job.id, candidate_ids: candidateIds },
-						token
-					);
-					const scoresMap = {};
-					(scoresData.evaluationScores || []).forEach((s) => {
-						scoresMap[s.candidate_id] = s;
-					});
-					setEvaluationScoresMap(scoresMap);
-				} catch (scoreErr) {
-					console.error("Error fetching evaluation scores:", scoreErr);
-				}
-			}
-		} catch (err) {
-			console.error("Error fetching applicants:", err);
-		} finally {
-			setApplicantsLoading(false);
-		}
-	};
-
-	const handleUpdateStatus = async (applicationId, newStatus) => {
-		setStatusUpdating(applicationId);
-		try {
-			await graphqlRequest(
-				`
-				mutation UpdateAppStatus($id: ID!, $status: ApplicationStatus!) {
-					updateApplicationStatus(id: $id, status: $status) {
-						id
-						status
-					}
-				}
-				`,
-				{ id: applicationId, status: newStatus },
-				token
-			);
-			setApplicants((prev) =>
-				prev.map((a) =>
-					a.id === applicationId ? { ...a, status: newStatus } : a
-				)
-			);
-		} catch (err) {
-			console.error("Error updating status:", err);
-		} finally {
-			setStatusUpdating(null);
-		}
-	};
-
-	const handleSendAiInterview = async (applicationId) => {
-		setSendingInterview(applicationId);
-		try {
-			const data = await graphqlRequest(
-				`mutation SendAiInterview($input: SendAiInterviewInput!) {
-					sendAiInterview(input: $input) {
-						id status overall_score interview_token recording_url results_released
-					}
-				}`,
-				{ input: { application_id: applicationId } },
-				token
-			);
-			setInterviewStatuses((prev) => ({
-				...prev,
-				[applicationId]: data.sendAiInterview,
-			}));
-		} catch (err) {
-			console.error("Error sending AI interview:", err);
-		} finally {
-			setSendingInterview(null);
-		}
-	};
-
-	const handleReleaseResults = async (applicationId, interviewId) => {
-		setReleasingResults(applicationId);
-		try {
-			const data = await graphqlRequest(
-				`mutation ReleaseResults($interview_id: ID!) {
-					releaseInterviewResults(interview_id: $interview_id) {
-						id status overall_score interview_token recording_url results_released
-					}
-				}`,
-				{ interview_id: interviewId },
-				token
-			);
-			setInterviewStatuses((prev) => ({
-				...prev,
-				[applicationId]: data.releaseInterviewResults,
-			}));
-		} catch (err) {
-			console.error("Error releasing results:", err);
-		} finally {
-			setReleasingResults(null);
-		}
-	};
-
-	const handleCloseApplicantsModal = () => {
-		setShowApplicantsModal(false);
-		setApplicantsJob(null);
-	};
-
-	const handleShowAnalysis = async (app) => {
-		setAnalysisCandidate(app.candidate);
-		setAnalysisAppId(app.id);
-		setAnalysisData(null);
-		setAnalysisLoading(true);
-		setShowApplicantsModal(false);
-		setShowAnalysisModal(true);
-		setTriggerSent(false);
-		setTriggerError(null);
-
-		try {
-			const data = await graphqlRequest(
-				`
-				query GetEvaluation($candidate_id: String!, $job_id: String!) {
-					evaluation(candidate_id: $candidate_id, job_id: $job_id) {
-						id
-						final_score
-						fit_level
-						summary
-						top_strengths
-						key_concerns
-						interview_focus_areas
-						dimension_scores {
-							dimension
-							score
-							rationale
-						}
-						strength_tags
-						concern_tags {
-							label
-							severity
-						}
-						agent_results {
-							agent_name
-							overall_score
-							category_scores {
-								category
-								score
-								weight
-								evidence
-							}
-							strengths
-							weaknesses
-						}
-						weight_profile {
-							name
-							reason
-						}
-						created_at
-					}
-				}
-				`,
-				{ candidate_id: app.candidate.id, job_id: applicantsJob.id },
-				token
-			);
-			setAnalysisData(data.evaluation);
-		} catch (err) {
-			console.error("Error fetching evaluation:", err);
-			setAnalysisData(null);
-		} finally {
-			setAnalysisLoading(false);
-		}
-	};
-
-	const handleBackToApplicants = () => {
-		setShowAnalysisModal(false);
-		setAnalysisData(null);
-		setAnalysisCandidate(null);
-		setAnalysisAppId(null);
-		setShowApplicantsModal(true);
-	};
-
-	const handleCloseAnalysisModal = () => {
-		setShowAnalysisModal(false);
-		setAnalysisData(null);
-		setAnalysisCandidate(null);
-		setAnalysisAppId(null);
-	};
-
-	const handleAnalysisAction = async (action) => {
-		if (!analysisAppId) return;
-		const newStatus = action === "accept" ? "shortlisted" : "rejected";
-		await handleUpdateStatus(analysisAppId, newStatus);
-		setShowAnalysisModal(false);
-		setAnalysisData(null);
-		setAnalysisCandidate(null);
-		setAnalysisAppId(null);
-		setShowApplicantsModal(true);
-	};
-
-	const handleTriggerEvaluation = async () => {
-		if (!analysisCandidate || !applicantsJob) return;
-		setTriggerLoading(true);
-		setTriggerError(null);
-		try {
-			await graphqlRequest(
-				`
-				mutation TriggerEval($candidate_id: String!, $job_id: String!) {
-					triggerEvaluation(candidate_id: $candidate_id, job_id: $job_id)
-				}
-				`,
-				{ candidate_id: analysisCandidate.id, job_id: applicantsJob.id },
-				token
-			);
-			setTriggerSent(true);
-		} catch (err) {
-			console.error("Error triggering evaluation:", err);
-			setTriggerError(err.message || "Failed to trigger evaluation");
-		} finally {
-			setTriggerLoading(false);
-		}
-	};
-
-	const getScoreColor = (score) => {
-		if (score >= 75) return "#10b981";
-		if (score >= 50) return "#f59e0b";
-		return "#ef4444";
+	const handleViewApplicants = (job) => {
+		navigate(`/recruiter/jobs/${job.id}/applicants`);
 	};
 
 	return (
@@ -848,107 +546,238 @@ const RecruiterHome = () => {
 									</div>
 								</div>
 							) : (
-								jobs.map((job) => (
-									<div className="job-card" key={job.id}>
-										<div className="job-header">
-											<div className="job-icon">💼</div>
-											<div>
-												<h3>{job.title}</h3>
-												<p>
-													{job.employment_type
-														.replace("_", " ")
-														.replace(
-															/\b\w/g,
-															(c) =>
-																c.toUpperCase()
-														)}{" "}
-													•{" "}
-													{job.experience_level
-														.charAt(0)
-														.toUpperCase() +
-														job.experience_level.slice(
-															1
-														)}{" "}
-													•{" "}
-													{job.location_type ===
-													"remote"
-														? "Remote"
-														: job.location}
-												</p>
-											</div>
-										</div>
-										<p className="job-description">
-											{job.description &&
-											job.description.length > 220
-												? `${job.description.slice(
-														0,
-														217
-												  )}...`
-												: job.description}
-										</p>
-										<div className="job-tags">
-											{job.location_type && (
-												<span className="tag">
-													{job.location_type ===
-													"remote"
-														? "Remote"
-														: job.location_type}
-												</span>
-											)}
-											{job.experience_level && (
-												<span className="tag">
-													{job.experience_level
-														.charAt(0)
-														.toUpperCase() +
-														job.experience_level.slice(
-															1
-														)}
-												</span>
-											)}
-											{job.employment_type && (
-												<span className="tag">
-													{job.employment_type
-														.replace("_", " ")
-														.replace(
-															/\b\w/g,
-															(c) =>
-																c.toUpperCase()
-														)}
-												</span>
-											)}
-											{Array.isArray(job.skills) &&
-												job.skills
-													.slice(0, 3)
-													.map((skill) => (
-														<span
-															className="tag"
-															key={`${job.id}-${skill}`}
+								jobs.map((job) => {
+									const deadlineDate = job.deadline ? new Date(job.deadline) : null;
+									const now = Date.now();
+									const deadlinePassed = deadlineDate ? deadlineDate.getTime() < now : false;
+									const msPerDay = 1000 * 60 * 60 * 24;
+									const daysLeft = deadlineDate
+										? Math.max(0, Math.ceil((deadlineDate.getTime() - now) / msPerDay))
+										: null;
+									const isUrgent = daysLeft !== null && !deadlinePassed && daysLeft <= 3;
+									const accentColor = deadlinePassed
+										? "#ef4444"
+										: isUrgent
+										? "#f59e0b"
+										: "var(--accent-cyan)";
+									const applicantCount = job.application_count || 0;
+									const employmentLabel = job.employment_type
+										.replace("_", " ")
+										.replace(/\b\w/g, (c) => c.toUpperCase());
+									const experienceLabel =
+										job.experience_level.charAt(0).toUpperCase() +
+										job.experience_level.slice(1);
+									return (
+										<div
+											className="job-card"
+											key={job.id}
+											style={{
+												position: "relative",
+												overflow: "hidden",
+												padding: "1.5rem 1.5rem 1.25rem 1.75rem",
+											}}
+										>
+											<span
+												aria-hidden
+												style={{
+													position: "absolute",
+													top: 0,
+													left: 0,
+													bottom: 0,
+													width: "4px",
+													background: accentColor,
+													opacity: 0.85,
+												}}
+											/>
+
+											<div
+												style={{
+													display: "flex",
+													justifyContent: "space-between",
+													alignItems: "flex-start",
+													gap: "1rem",
+													marginBottom: "0.85rem",
+													flexWrap: "wrap",
+												}}
+											>
+												<div style={{ display: "flex", gap: "0.85rem", alignItems: "flex-start", minWidth: 0, flex: 1 }}>
+													<div
+														style={{
+															width: 44,
+															height: 44,
+															borderRadius: "0.6rem",
+															background: "rgba(34, 211, 238, 0.1)",
+															display: "flex",
+															alignItems: "center",
+															justifyContent: "center",
+															flexShrink: 0,
+														}}
+													>
+														<Briefcase size={20} style={{ color: "var(--accent-cyan)" }} />
+													</div>
+													<div style={{ minWidth: 0 }}>
+														<h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", textTransform: "capitalize" }}>
+															{job.title}
+														</h3>
+														<div
+															style={{
+																display: "flex",
+																flexWrap: "wrap",
+																gap: "0.85rem",
+																marginTop: "0.35rem",
+																fontSize: "0.8rem",
+																color: "var(--text-secondary)",
+															}}
 														>
+															<span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+																<Briefcase size={12} />
+																{employmentLabel}
+															</span>
+															<span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+																<TrendingUp size={12} />
+																{experienceLabel}
+															</span>
+															<span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+																<MapPin size={12} />
+																{job.location_type === "remote" ? "Remote" : job.location}
+															</span>
+														</div>
+													</div>
+												</div>
+
+												{deadlineDate && (
+													<span
+														style={{
+															padding: "0.3rem 0.7rem",
+															borderRadius: "1rem",
+															fontSize: "0.72rem",
+															fontWeight: 600,
+															background: `${accentColor}1f`,
+															color: accentColor,
+															border: `1px solid ${accentColor}55`,
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.35rem",
+															whiteSpace: "nowrap",
+														}}
+													>
+														<Clock size={12} />
+														{deadlinePassed
+															? `Closed ${formatDate(job.deadline)}`
+															: daysLeft === 0
+															? "Closes today"
+															: `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+													</span>
+												)}
+											</div>
+
+											{job.description && (
+												<p
+													className="job-description"
+													style={{ marginBottom: "0.9rem", fontSize: "0.875rem", lineHeight: 1.55 }}
+												>
+													{job.description.length > 200
+														? `${job.description.slice(0, 197)}...`
+														: job.description}
+												</p>
+											)}
+
+											<div className="job-tags" style={{ marginBottom: "1rem" }}>
+												{Array.isArray(job.skills) &&
+													job.skills.slice(0, 4).map((skill) => (
+														<span className="tag" key={`${job.id}-${skill}`}>
 															{skill}
 														</span>
 													))}
-										</div>
-										<div className="job-actions">
-											<span
+												{Array.isArray(job.skills) && job.skills.length > 4 && (
+													<span
+														style={{
+															fontSize: "0.75rem",
+															color: "var(--text-secondary)",
+															alignSelf: "center",
+														}}
+													>
+														+{job.skills.length - 4} more
+													</span>
+												)}
+											</div>
+
+											<div
 												style={{
-													color: "var(--text-secondary)",
-													fontSize: "0.8rem",
-													marginRight: "auto",
+													display: "flex",
+													justifyContent: "space-between",
+													alignItems: "center",
+													paddingTop: "0.9rem",
+													borderTop: "1px solid var(--border)",
+													gap: "1rem",
+													flexWrap: "wrap",
 												}}
 											>
-												Posted{" "}
-												{formatDate(job.createdAt)}
-											</span>
-											<button
-												className="btn btn-outline btn-sm"
-												onClick={() => handleViewApplicants(job)}
-											>
-												<Users size={14} />
-												Applicants ({job.application_count || 0})
-											</button>
+												<div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+													<div
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.4rem",
+															padding: "0.35rem 0.7rem",
+															borderRadius: "0.5rem",
+															background: "rgba(34, 211, 238, 0.08)",
+															color: "var(--accent-cyan)",
+															fontSize: "0.78rem",
+															fontWeight: 600,
+														}}
+													>
+														<Users size={13} />
+														{applicantCount} applicant{applicantCount === 1 ? "" : "s"}
+													</div>
+													<span
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.35rem",
+															color: "var(--text-secondary)",
+															fontSize: "0.75rem",
+														}}
+													>
+														<CalendarDays size={12} />
+														Posted {formatDate(job.createdAt)}
+													</span>
+												</div>
+
+												<button
+													onClick={() => handleViewApplicants(job)}
+													style={{
+														display: "inline-flex",
+														alignItems: "center",
+														gap: "0.45rem",
+														padding: "0.55rem 1.1rem",
+														borderRadius: "0.6rem",
+														border: "1px solid rgba(34, 211, 238, 0.4)",
+														background: "rgba(34, 211, 238, 0.08)",
+														color: "var(--accent-cyan)",
+														fontSize: "0.85rem",
+														fontWeight: 600,
+														cursor: "pointer",
+														transition: "all 0.18s ease",
+													}}
+													onMouseEnter={(e) => {
+														e.currentTarget.style.background = "rgba(34, 211, 238, 0.18)";
+														e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.7)";
+														e.currentTarget.style.transform = "translateX(2px)";
+													}}
+													onMouseLeave={(e) => {
+														e.currentTarget.style.background = "rgba(34, 211, 238, 0.08)";
+														e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.4)";
+														e.currentTarget.style.transform = "translateX(0)";
+													}}
+												>
+													{deadlinePassed ? "View Ranked List" : "View Applicants"}
+													<ArrowRight size={14} />
+												</button>
+											</div>
 										</div>
-									</div>
-								))
+									);
+								})
 							)}
 						</div>
 					</div>
@@ -1194,6 +1023,37 @@ const RecruiterHome = () => {
 													}
 													required
 												/>
+											</div>
+										</div>
+										<div className="form-row">
+											<div className="form-group">
+												<label htmlFor="deadline">
+													Application Deadline *
+												</label>
+												<input
+													type="date"
+													id="deadline"
+													className="input-field"
+													min={new Date().toISOString().split("T")[0]}
+													value={jobForm.deadline}
+													onChange={(e) =>
+														setJobForm({
+															...jobForm,
+															deadline:
+																e.target.value,
+														})
+													}
+													required
+												/>
+												<p
+													style={{
+														fontSize: "0.75rem",
+														color: "var(--text-secondary)",
+														marginTop: "0.35rem",
+													}}
+												>
+													Candidates can't apply after this date.
+												</p>
 											</div>
 										</div>
 									</div>
@@ -1572,346 +1432,6 @@ const RecruiterHome = () => {
 					</div>
 				)}
 
-				{/* AI Analysis Report Modal */}
-				{showAnalysisModal && (
-					<div className="modal-overlay" onClick={handleCloseAnalysisModal}>
-						<div
-							className="modal-content modal-large"
-							onClick={(e) => e.stopPropagation()}
-							style={{ maxHeight: "90vh", maxWidth: "950px", overflow: "hidden", display: "flex", flexDirection: "column" }}
-						>
-							<div className="modal-header">
-								<div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-									<button
-										onClick={handleBackToApplicants}
-										className="btn btn-outline btn-sm"
-										style={{ padding: "0.3rem 0.5rem", marginRight: "0.25rem" }}
-									>
-										<ChevronLeft size={18} />
-									</button>
-									<BarChart3 size={22} style={{ color: "#8b5cf6" }} />
-									<h2 style={{ margin: 0 }}>
-										AI Analysis {analysisCandidate ? `— ${analysisCandidate.first_name} ${analysisCandidate.last_name}` : ""}
-									</h2>
-								</div>
-								<button className="modal-close" onClick={handleCloseAnalysisModal}>
-									<X size={24} />
-								</button>
-							</div>
-							<div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-								{analysisLoading ? (
-									<div className="loading-spinner" style={{ minHeight: "200px" }}>
-										<div className="spinner"></div>
-										<p>Loading AI analysis...</p>
-									</div>
-								) : !analysisData ? (
-									<div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)" }}>
-										<AlertTriangle size={48} style={{ opacity: 0.4, marginBottom: "1rem", color: "#f59e0b" }} />
-										<h3 style={{ color: "var(--text-primary)" }}>No AI Analysis Available</h3>
-										<p>This candidate has not been evaluated by the AI pipeline yet.</p>
-										{triggerSent ? (
-											<div style={{ marginTop: "1.25rem", padding: "0.75rem 1rem", borderRadius: "0.5rem", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981", fontSize: "0.95rem" }}>
-												<CheckCircle size={16} style={{ verticalAlign: "middle", marginRight: "0.4rem" }} />
-												Evaluation triggered successfully. It may take a few minutes to complete.
-											</div>
-										) : (
-											<div style={{ marginTop: "1.25rem" }}>
-												<button
-													className="btn btn-primary"
-													style={{ padding: "0.6rem 1.5rem", fontSize: "0.95rem" }}
-													onClick={handleTriggerEvaluation}
-													disabled={triggerLoading}
-												>
-													<BarChart3 size={16} />
-													{triggerLoading ? "Triggering..." : "Trigger AI Analysis"}
-												</button>
-												{triggerError && (
-													<p style={{ marginTop: "0.75rem", color: "#ef4444", fontSize: "0.9rem" }}>
-														{triggerError}
-													</p>
-												)}
-											</div>
-										)}
-									</div>
-								) : (
-									<AIAnalysisReport
-										data={analysisData}
-										candidate={analysisCandidate}
-										appId={analysisAppId}
-										onAction={handleAnalysisAction}
-										statusUpdating={statusUpdating}
-									/>
-								)}
-							</div>
-						</div>
-					</div>
-				)}
-
-				{/* Applicants Modal */}
-				{showApplicantsModal && applicantsJob && (
-					<div className="modal-overlay" onClick={handleCloseApplicantsModal}>
-						<div
-							className="modal-content modal-large"
-							onClick={(e) => e.stopPropagation()}
-						>
-							<div className="modal-header">
-								<h2>Applicants for {applicantsJob.title}</h2>
-								<button
-									className="modal-close"
-									onClick={handleCloseApplicantsModal}
-								>
-									<X size={24} />
-								</button>
-							</div>
-							<div className="modal-body">
-								{applicantsLoading ? (
-									<div className="loading-spinner" style={{ minHeight: "200px" }}>
-										<div className="spinner"></div>
-										<p>Loading applicants...</p>
-									</div>
-								) : applicants.length === 0 ? (
-									<div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-secondary)" }}>
-										<Users size={48} style={{ opacity: 0.4, marginBottom: "1rem" }} />
-										<h3 style={{ color: "var(--text-primary)" }}>No applicants yet</h3>
-										<p>Applicants will appear here once candidates apply to this job.</p>
-									</div>
-								) : (
-									<div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-										{applicants.map((app) => (
-											<div
-												key={app.id}
-												style={{
-													background: "var(--bg-dark)",
-													border: "1px solid var(--border)",
-													borderRadius: "0.75rem",
-													padding: "1.25rem",
-												}}
-											>
-												<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-													<div>
-														<h3 style={{ margin: "0 0 0.25rem 0", color: "var(--text-primary)", fontSize: "1.05rem" }}>
-															{app.candidate?.first_name} {app.candidate?.last_name}
-														</h3>
-														<p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-															{app.candidate?.email}
-															{app.candidate?.location_city && ` \u2022 ${app.candidate.location_city}${app.candidate.location_state ? `, ${app.candidate.location_state}` : ""}`}
-														</p>
-													</div>
-													<div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-													{evaluationScoresMap[app.candidate?.id] && (
-														<span
-															style={{
-																padding: "0.25rem 0.65rem",
-																borderRadius: "1rem",
-																fontSize: "0.75rem",
-																fontWeight: 700,
-																background: `${getScoreColor(evaluationScoresMap[app.candidate.id].final_score)}22`,
-																color: getScoreColor(evaluationScoresMap[app.candidate.id].final_score),
-																display: "flex",
-																alignItems: "center",
-																gap: "0.3rem",
-															}}
-														>
-															<BarChart3 size={12} />
-															{Math.round(evaluationScoresMap[app.candidate.id].final_score)}/100
-														</span>
-													)}
-													<span
-														style={{
-															padding: "0.25rem 0.75rem",
-															borderRadius: "1rem",
-															fontSize: "0.75rem",
-															fontWeight: 600,
-															background:
-																app.status === "shortlisted" ? "rgba(16, 185, 129, 0.15)" :
-																app.status === "rejected" ? "rgba(239, 68, 68, 0.15)" :
-																app.status === "hired" ? "rgba(34, 211, 238, 0.15)" :
-																app.status === "reviewed" ? "rgba(139, 92, 246, 0.15)" :
-																"rgba(245, 158, 11, 0.15)",
-															color:
-																app.status === "shortlisted" ? "#10b981" :
-																app.status === "rejected" ? "#ef4444" :
-																app.status === "hired" ? "var(--accent-cyan)" :
-																app.status === "reviewed" ? "#8b5cf6" :
-																"#f59e0b",
-														}}
-													>
-														{app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-													</span>
-												</div>
-												</div>
-
-												{app.candidate?.skills && app.candidate.skills.length > 0 && (
-													<div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.75rem" }}>
-														{app.candidate.skills.slice(0, 6).map((skill) => (
-															<span className="tag" key={`${app.id}-${skill}`}>{skill}</span>
-														))}
-													</div>
-												)}
-
-												{app.cover_letter && (
-													<p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.75rem", lineHeight: 1.5 }}>
-														<strong style={{ color: "var(--text-primary)" }}>Cover Letter:</strong>{" "}
-														{app.cover_letter.length > 200 ? `${app.cover_letter.slice(0, 197)}...` : app.cover_letter}
-													</p>
-												)}
-
-												<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-													{app.resume_url && (
-														<a
-															href={app.resume_url}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="btn btn-outline btn-sm"
-															style={{ textDecoration: "none" }}
-														>
-															<FileText size={14} />
-															Resume
-														</a>
-													)}
-													{app.candidate?.linkedin_url && (
-														<a
-															href={app.candidate.linkedin_url}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="btn btn-outline btn-sm"
-															style={{ textDecoration: "none" }}
-														>
-															<ExternalLink size={14} />
-															LinkedIn
-														</a>
-													)}
-													{app.candidate?.github_url && (
-														<a
-															href={app.candidate.github_url}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="btn btn-outline btn-sm"
-															style={{ textDecoration: "none" }}
-														>
-															<ExternalLink size={14} />
-															GitHub
-														</a>
-													)}
-
-													<div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-														<button
-															className="btn btn-sm"
-															style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
-															onClick={() => handleShowAnalysis(app)}
-														>
-															<BarChart3 size={14} />
-															AI Analysis
-														</button>
-														{(() => {
-															const iv = interviewStatuses[app.id];
-															if (iv && iv.status === "completed") {
-																return (
-																	<>
-																		<span
-																			className="btn btn-sm"
-																			style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", cursor: "default" }}
-																		>
-																			<CheckCircle size={14} />
-																			Score: {Math.round(iv.overall_score || 0)}/100
-																		</span>
-																		{iv.recording_url && (
-																			<a
-																				href={`${import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5001"}${iv.recording_url}`}
-																				target="_blank"
-																				rel="noopener noreferrer"
-																				className="btn btn-sm"
-																				style={{ background: "rgba(99, 102, 241, 0.15)", color: "#6366f1", border: "1px solid rgba(99, 102, 241, 0.3)" }}
-																			>
-																				<Play size={14} />
-																				Watch Recording
-																			</a>
-																		)}
-																		{iv.results_released ? (
-																			<span
-																				className="btn btn-sm"
-																				style={{ background: "rgba(16, 185, 129, 0.1)", color: "#6ee7b7", border: "1px solid rgba(16, 185, 129, 0.2)", cursor: "default" }}
-																			>
-																				<CheckCircle size={14} />
-																				Results Shared
-																			</span>
-																		) : (
-																			<button
-																				className="btn btn-sm"
-																				style={{ background: "rgba(234, 179, 8, 0.15)", color: "#eab308", border: "1px solid rgba(234, 179, 8, 0.3)" }}
-																				onClick={() => handleReleaseResults(app.id, iv.id)}
-																				disabled={releasingResults === app.id}
-																			>
-																				{releasingResults === app.id ? (
-																					<Loader size={14} className="spin" />
-																				) : (
-																					<Send size={14} />
-																				)}
-																				Release Results
-																			</button>
-																		)}
-																	</>
-																);
-															}
-															if (iv && (iv.status === "scheduled" || iv.status === "in_progress")) {
-																return (
-																	<span
-																		className="btn btn-sm"
-																		style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)", cursor: "default" }}
-																	>
-																		<Video size={14} />
-																		Interview Sent
-																	</span>
-																);
-															}
-															return (
-																<button
-																	className="btn btn-sm"
-																	style={{ background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
-																	onClick={() => handleSendAiInterview(app.id)}
-																	disabled={sendingInterview === app.id}
-																>
-																	{sendingInterview === app.id ? (
-																		<Loader size={14} className="spin" />
-																	) : (
-																		<Video size={14} />
-																	)}
-																	Send AI Interview
-																</button>
-															);
-														})()}
-														{app.status !== "shortlisted" && (
-															<button
-																className="btn btn-sm"
-																style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)" }}
-																onClick={() => handleUpdateStatus(app.id, "shortlisted")}
-																disabled={statusUpdating === app.id}
-															>
-																<Star size={14} />
-																Shortlist
-															</button>
-														)}
-														{app.status !== "rejected" && (
-															<button
-																className="btn btn-sm"
-																style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)" }}
-																onClick={() => handleUpdateStatus(app.id, "rejected")}
-																disabled={statusUpdating === app.id}
-															>
-																<XCircle size={14} />
-																Reject
-															</button>
-														)}
-													</div>
-												</div>
-											</div>
-										))}
-									</div>
-								)}
-							</div>
-						</div>
-					</div>
-				)}
 			</div>
 		</div>
 	);
