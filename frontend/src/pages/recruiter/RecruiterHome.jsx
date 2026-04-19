@@ -616,7 +616,24 @@ const RecruiterHome = () => {
 														<Briefcase size={20} style={{ color: "var(--accent-cyan)" }} />
 													</div>
 													<div style={{ minWidth: 0 }}>
-														<h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", textTransform: "capitalize" }}>
+														<h3
+															style={{
+																margin: 0,
+																fontSize: "1.1rem",
+																fontWeight: 700,
+																color: "var(--text-primary)",
+																textTransform: "capitalize",
+																cursor: "pointer",
+															}}
+															onClick={() => navigate(`/jobs/${job.id}`)}
+															onMouseEnter={(e) => {
+																e.currentTarget.style.color = "var(--accent-cyan)";
+															}}
+															onMouseLeave={(e) => {
+																e.currentTarget.style.color = "var(--text-primary)";
+															}}
+															title="View full job posting"
+														>
 															{job.title}
 														</h3>
 														<div
@@ -744,36 +761,65 @@ const RecruiterHome = () => {
 													</span>
 												</div>
 
-												<button
-													onClick={() => handleViewApplicants(job)}
-													style={{
-														display: "inline-flex",
-														alignItems: "center",
-														gap: "0.45rem",
-														padding: "0.55rem 1.1rem",
-														borderRadius: "0.6rem",
-														border: "1px solid rgba(34, 211, 238, 0.4)",
-														background: "rgba(34, 211, 238, 0.08)",
-														color: "var(--accent-cyan)",
-														fontSize: "0.85rem",
-														fontWeight: 600,
-														cursor: "pointer",
-														transition: "all 0.18s ease",
-													}}
-													onMouseEnter={(e) => {
-														e.currentTarget.style.background = "rgba(34, 211, 238, 0.18)";
-														e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.7)";
-														e.currentTarget.style.transform = "translateX(2px)";
-													}}
-													onMouseLeave={(e) => {
-														e.currentTarget.style.background = "rgba(34, 211, 238, 0.08)";
-														e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.4)";
-														e.currentTarget.style.transform = "translateX(0)";
-													}}
-												>
-													{deadlinePassed ? "View Ranked List" : "View Applicants"}
-													<ArrowRight size={14} />
-												</button>
+												<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+													<button
+														onClick={() => navigate(`/jobs/${job.id}`)}
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.4rem",
+															padding: "0.55rem 1rem",
+															borderRadius: "0.6rem",
+															border: "1px solid var(--border)",
+															background: "transparent",
+															color: "var(--text-secondary)",
+															fontSize: "0.85rem",
+															fontWeight: 600,
+															cursor: "pointer",
+															transition: "all 0.18s ease",
+														}}
+														onMouseEnter={(e) => {
+															e.currentTarget.style.borderColor = "var(--accent-cyan)";
+															e.currentTarget.style.color = "var(--accent-cyan)";
+														}}
+														onMouseLeave={(e) => {
+															e.currentTarget.style.borderColor = "var(--border)";
+															e.currentTarget.style.color = "var(--text-secondary)";
+														}}
+													>
+														View Job
+													</button>
+													<button
+														onClick={() => handleViewApplicants(job)}
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.45rem",
+															padding: "0.55rem 1.1rem",
+															borderRadius: "0.6rem",
+															border: "1px solid rgba(34, 211, 238, 0.4)",
+															background: "rgba(34, 211, 238, 0.08)",
+															color: "var(--accent-cyan)",
+															fontSize: "0.85rem",
+															fontWeight: 600,
+															cursor: "pointer",
+															transition: "all 0.18s ease",
+														}}
+														onMouseEnter={(e) => {
+															e.currentTarget.style.background = "rgba(34, 211, 238, 0.18)";
+															e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.7)";
+															e.currentTarget.style.transform = "translateX(2px)";
+														}}
+														onMouseLeave={(e) => {
+															e.currentTarget.style.background = "rgba(34, 211, 238, 0.08)";
+															e.currentTarget.style.borderColor = "rgba(34, 211, 238, 0.4)";
+															e.currentTarget.style.transform = "translateX(0)";
+														}}
+													>
+														{deadlinePassed ? "View Ranked List" : "View Applicants"}
+														<ArrowRight size={14} />
+													</button>
+												</div>
 											</div>
 										</div>
 									);

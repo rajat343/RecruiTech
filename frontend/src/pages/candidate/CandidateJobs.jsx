@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
 import {
@@ -61,6 +62,7 @@ const SEARCH_JOBS_QUERY = `
 
 const CandidateJobs = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [jobs, setJobs] = useState([]);
   const [total, setTotal] = useState(0);
@@ -421,7 +423,13 @@ const CandidateJobs = () => {
                           <Building2 size={22} />
                         </div>
                         <div className="card-info">
-                          <h3>{job.title}</h3>
+                          <h3
+                            style={{ cursor: "pointer" }}
+                            onClick={() => navigate(`/jobs/${job.id}`)}
+                            title="View full job posting"
+                          >
+                            {job.title}
+                          </h3>
                           <p className="company-line">
                             {job.company_name || "Company"} &bull; {job.location}
                           </p>
@@ -461,6 +469,12 @@ const CandidateJobs = () => {
                           ))}
                       </div>
                       <div className="card-actions">
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => navigate(`/jobs/${job.id}`)}
+                        >
+                          View Details
+                        </button>
                         {isApplied ? (
                           <>
                             <span className="btn-applied">
