@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
@@ -11,8 +11,17 @@ const Login = () => {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const navigate = useNavigate();
-	const { login } = useAuth();
+	const { login, user, loading: authLoading } = useAuth();
 	const [searchParams] = useSearchParams();
+
+	useEffect(() => {
+		if (authLoading || !user) return;
+		if (user.role === "candidate") {
+			navigate("/candidate/home", { replace: true });
+		} else if (user.role === "recruiter") {
+			navigate("/recruiter/home", { replace: true });
+		}
+	}, [authLoading, user, navigate]);
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
