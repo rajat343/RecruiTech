@@ -1,7 +1,10 @@
 const aiService = require("./aiService");
 const { publishInterviewComplete } = require("../config/kafka");
-
-const MAX_FOLLOW_UPS_PER_QUESTION = 1;
+const {
+	MAX_TOTAL_INTERVIEW_QUESTIONS,
+	MAX_FOLLOW_UPS_TOTAL,
+	FOCUS_PRIMARY_QUESTION_COUNT,
+} = require("../constants/interviewLimits");
 
 /**
  * Final scoring, persist interview as completed, publish Kafka (no socket I/O).
@@ -84,16 +87,34 @@ const processCandidateAnswer = async (interview, answer) => {
 	currentQuestion.score = evaluation.score;
 	currentQuestion.ai_evaluation = evaluation.evaluation;
 
-	const followUpCount = interview.questions.filter(
-		(q) =>
-			q.question_type === "follow_up" &&
-			q.parent_question_index === currentIndex,
+	const primarySlot = currentQuestion.focus_primary_index;
+	const onFirstWavePrimary =
+		currentQuestion.question_type === "initial" &&
+		typeof primarySlot === "number" &&
+		primarySlot >= 0 &&
+		primarySlot < FOCUS_PRIMARY_QUESTION_COUNT;
+
+	const totalFollowUps = interview.questions.filter(
+		(q) => q.question_type === "follow_up",
 	).length;
 
+	const alreadyFollowedThisPrimary =
+		onFirstWavePrimary &&
+		interview.questions.some(
+			(q) =>
+				q.question_type === "follow_up" &&
+				q.parent_focus_primary_index === primarySlot,
+		);
+
+	const roomInList = interview.questions.length < MAX_TOTAL_INTERVIEW_QUESTIONS;
+
 	const shouldFollowUp =
+		onFirstWavePrimary &&
+		!alreadyFollowedThisPrimary &&
+		roomInList &&
+		totalFollowUps < MAX_FOLLOW_UPS_TOTAL &&
 		evaluation.needs_follow_up &&
-		evaluation.follow_up_question &&
-		followUpCount < MAX_FOLLOW_UPS_PER_QUESTION;
+		evaluation.follow_up_question;
 
 	if (shouldFollowUp) {
 		const followUpQ = {
@@ -101,6 +122,8 @@ const processCandidateAnswer = async (interview, answer) => {
 			question_type: "follow_up",
 			category: evaluation.follow_up_category || currentQuestion.category,
 			parent_question_index: currentIndex,
+			parent_focus_primary_index: primarySlot,
+			focus_primary_index: null,
 			candidate_answer: "",
 			ai_evaluation: "",
 			score: null,

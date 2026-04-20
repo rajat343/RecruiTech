@@ -36,6 +36,15 @@ const sendAiInterview = async (recruiterId, { application_id }) => {
 		is_deleted: false,
 	});
 
+	const mongoose = require("mongoose");
+	const evaluation = await mongoose.connection.db.collection("evaluations").findOne(
+		{
+			candidate_id: String(application.candidate_id),
+			job_id: String(application.job_id),
+		},
+		{ sort: { created_at: -1 } }
+	);
+
 	const grpcRes = await createInterviewSessionGrpc({
 		application_id: String(application_id),
 		candidate_id: String(application.candidate_id),
@@ -45,6 +54,8 @@ const sendAiInterview = async (recruiterId, { application_id }) => {
 		resume_url: candidate?.resume_url || application.resume_url || "",
 		job_title: job.title,
 		job_description: job.description,
+		interview_focus_areas: evaluation?.interview_focus_areas || [],
+		strength_tags: evaluation?.strength_tags || [],
 	});
 
 	if (!grpcRes.ok) {

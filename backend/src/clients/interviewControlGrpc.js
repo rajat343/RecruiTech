@@ -63,6 +63,8 @@ const createInterviewSessionGrpc = (fields) => {
 		resume_url: fields.resume_url || "",
 		job_title: fields.job_title || "",
 		job_description: fields.job_description || "",
+		interview_focus_areas: fields.interview_focus_areas || [],
+		strength_tags: fields.strength_tags || [],
 		internal_secret: process.env.GRPC_INTERNAL_SECRET || "",
 	};
 

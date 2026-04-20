@@ -75,7 +75,8 @@ const registerInterviewHandlers = (io, socket) => {
 							interview.resume_text || "No resume provided",
 							interview.job_description || "No job description",
 							interview.job_title || "Position",
-							interview.total_questions,
+							interview.interview_focus_areas || [],
+							interview.strength_tags || [],
 						);
 
 						await Interview.updateOne(
@@ -102,6 +103,42 @@ const registerInterviewHandlers = (io, socket) => {
 				await new Promise((r) => setTimeout(r, 500));
 				interview = await Interview.findById(interview._id);
 				wait += 1;
+			}
+
+			// Recover from empty questions (failed parse, bad slice count, or partial failure).
+			if (
+				interview.status === "in_progress" &&
+				(!interview.questions || interview.questions.length === 0) &&
+				process.env.OPENAI_API_KEY
+			) {
+				socket.emit("status-update", {
+					message: "Generating interview questions...",
+				});
+				try {
+					const recovered = await aiService.generateQuestions(
+						interview.resume_text || "No resume provided",
+						interview.job_description || "No job description",
+						interview.job_title || "Position",
+						interview.interview_focus_areas || [],
+						interview.strength_tags || [],
+					);
+					if (recovered.length) {
+						await Interview.updateOne(
+							{ _id: interview._id },
+							{ $set: { questions: recovered } },
+						);
+						interview = await Interview.findById(interview._id);
+					}
+				} catch (e) {
+					console.error("join-interview question recovery failed:", e.message);
+				}
+			}
+
+			if (!interview.questions || interview.questions.length === 0) {
+				return socket.emit("error", {
+					message:
+						"Interview questions are not available. Set OPENAI_API_KEY on the interview service, verify the key and OPENAI_MODEL, then reload this page.",
+				});
 			}
 
 			const currentQ =

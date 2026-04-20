@@ -9,6 +9,8 @@ const createInterview = async ({
 	resume_url,
 	job_title,
 	job_description,
+	interview_focus_areas = [],
+	strength_tags = [],
 }) => {
 	const existing = await Interview.findOne({
 		application_id,
@@ -29,6 +31,8 @@ const createInterview = async ({
 		resume_url,
 		job_title,
 		job_description,
+		interview_focus_areas,
+		strength_tags,
 	});
 
 	await interview.save();

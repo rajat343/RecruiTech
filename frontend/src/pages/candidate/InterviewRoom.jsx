@@ -73,6 +73,8 @@ const InterviewRoom = () => {
 	const graceTimerRef = useRef(null);
 	const isProcessingRef = useRef(false);
 	const webrtcOfferSentRef = useRef(false);
+	/** Remote ICE can arrive before setRemoteDescription(answer) finishes; queue until then. */
+	const pendingRemoteIceRef = useRef([]);
 
 	// Keep transcriptRef in sync
 	useEffect(() => {
@@ -113,6 +115,8 @@ const InterviewRoom = () => {
 			}
 			peerConnectionRef.current = null;
 		}
+
+		pendingRemoteIceRef.current = [];
 
 		const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 		peerConnectionRef.current = pc;
@@ -319,6 +323,7 @@ const InterviewRoom = () => {
 		}
 		analyserRef.current = null;
 		webrtcOfferSentRef.current = false;
+		pendingRemoteIceRef.current = [];
 		setWebrtcConnected(false);
 	}, [stopRecording]);
 
@@ -409,6 +414,17 @@ const InterviewRoom = () => {
 			await setupWebRTC(socket, stream);
 		};
 
+		const flushPendingRemoteIce = async (pc) => {
+			const pending = pendingRemoteIceRef.current.splice(0);
+			for (const init of pending) {
+				try {
+					await pc.addIceCandidate(new RTCIceCandidate(init));
+				} catch (err) {
+					console.warn("Failed to add queued ICE candidate:", err);
+				}
+			}
+		};
+
 		const emitJoin = () => {
 			if (socket.connected) {
 				socket.emit("join-interview", { interviewToken });
@@ -421,6 +437,7 @@ const InterviewRoom = () => {
 			if (!pc) return;
 			try {
 				await pc.setRemoteDescription(new RTCSessionDescription({ sdp, type }));
+				await flushPendingRemoteIce(pc);
 			} catch (err) {
 				console.error("Failed to set remote description:", err);
 			}
@@ -429,10 +446,13 @@ const InterviewRoom = () => {
 		socket.on("webrtc-ice-candidate", async ({ candidate, sdpMid, sdpMLineIndex }) => {
 			const pc = peerConnectionRef.current;
 			if (!pc || !candidate) return;
+			const init = { candidate, sdpMid, sdpMLineIndex };
 			try {
-				await pc.addIceCandidate(
-					new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex })
-				);
+				if (!pc.remoteDescription) {
+					pendingRemoteIceRef.current.push(init);
+					return;
+				}
+				await pc.addIceCandidate(new RTCIceCandidate(init));
 			} catch (err) {
 				console.error("Failed to add ICE candidate:", err);
 			}
@@ -517,8 +537,14 @@ const InterviewRoom = () => {
 		});
 
 		socket.on("error", (data) => {
-			setErrorMessage(data.message);
-			if (data.message === "Interview not found" || data.message === "Unauthorized") {
+			const msg = data.message || "";
+			setErrorMessage(msg);
+			const fatalSetup =
+				msg === "Interview not found" ||
+				msg === "Unauthorized" ||
+				msg === "Failed to join interview" ||
+				msg.includes("Interview questions are not available");
+			if (fatalSetup) {
 				setStatus("error");
 			}
 		});
@@ -587,6 +613,7 @@ const InterviewRoom = () => {
 				audioContextRef.current = null;
 			}
 			webrtcOfferSentRef.current = false;
+			pendingRemoteIceRef.current = [];
 		};
 	}, [initializeMedia, startSilenceDetection, connectSocket]);
 

@@ -74,6 +74,8 @@ const createInterviewSession = async (call, callback) => {
 			resume_url: r.resume_url || "",
 			job_title: r.job_title || "",
 			job_description: r.job_description || "",
+			interview_focus_areas: r.interview_focus_areas || [],
+			strength_tags: r.strength_tags || [],
 		});
 
 		return callback(null, {

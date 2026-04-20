@@ -21,6 +21,8 @@ message CreateInterviewSessionRequest {
   string job_title = 7;
   string job_description = 8;
   string internal_secret = 9;
+  repeated string interview_focus_areas = 10;
+  repeated string strength_tags = 11;
 }
 
 message CreateInterviewSessionResponse {
