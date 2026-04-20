@@ -22,6 +22,7 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
     location: { type: String, required: true }, // City / Region or Remote tag
+    deadline: { type: Date, required: true },
     salary_min: { type: Number },
     salary_max: { type: Number },
     salary_currency: { type: String, default: "USD" },

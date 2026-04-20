@@ -423,7 +423,13 @@ const CandidateHome = () => {
 												<Building2 size={22} style={{ color: "var(--accent-cyan)" }} />
 											</div>
 											<div>
-												<h3>{job.title}</h3>
+												<h3
+													style={{ cursor: "pointer" }}
+													onClick={() => navigate(`/jobs/${job.id}`)}
+													title="View full job posting"
+												>
+													{job.title}
+												</h3>
 												<p>{job.company_name || "Company"} &bull; {job.location}</p>
 											</div>
 										</div>
@@ -444,7 +450,7 @@ const CandidateHome = () => {
 										</div>
 										<button
 											className="btn btn-primary btn-sm"
-											onClick={() => navigate("/candidate/jobs")}
+											onClick={() => navigate(`/jobs/${job.id}`)}
 										>
 											View & Apply
 										</button>

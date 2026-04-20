@@ -11,6 +11,8 @@ import CandidateJobs from "./pages/candidate/CandidateJobs";
 import InterviewRoom from "./pages/candidate/InterviewRoom";
 import RecruiterOnboarding from "./pages/recruiter/RecruiterOnboarding";
 import RecruiterHome from "./pages/recruiter/RecruiterHome";
+import JobApplicants from "./pages/recruiter/JobApplicants";
+import JobDetails from "./pages/common/JobDetails";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -102,6 +104,22 @@ function App() {
 					element={
 						<ProtectedRoute allowedRoles={["recruiter"]}>
 							<RecruiterHome />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/recruiter/jobs/:jobId/applicants"
+					element={
+						<ProtectedRoute allowedRoles={["recruiter"]}>
+							<JobApplicants />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/jobs/:jobId"
+					element={
+						<ProtectedRoute>
+							<JobDetails />
 						</ProtectedRoute>
 					}
 				/>

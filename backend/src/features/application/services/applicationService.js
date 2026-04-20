@@ -17,6 +17,10 @@ const applyToJob = async (userId, { job_id, cover_letter, resume_url }) => {
   const job = await Job.findOne({ _id: job_id, is_deleted: false, is_active: true });
   if (!job) throw new Error("Job not found or no longer active");
 
+  if (job.deadline && new Date(job.deadline).getTime() < Date.now()) {
+    throw new Error("The application deadline for this job has passed");
+  }
+
   const existing = await Application.findOne({
     job_id,
     candidate_id: candidate._id.toString(),

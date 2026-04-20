@@ -41,6 +41,7 @@ const jobTypeDefs = gql`
     is_deleted: Boolean!
     company_name: String
     application_count: Int
+    deadline: String
     createdAt: String!
     updatedAt: String!
   }
@@ -52,6 +53,7 @@ const jobTypeDefs = gql`
     experience_level: ExperienceLevel!
     location_type: LocationType!
     location: String!
+    deadline: String!
     salary_min: Int
     salary_max: Int
     salary_currency: String
