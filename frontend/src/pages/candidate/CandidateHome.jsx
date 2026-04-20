@@ -102,8 +102,9 @@ const CandidateHome = () => {
 							}
 						}
 						myApplicationCount
-						myApplications(limit: 5) {
+						myApplications(limit: 200) {
 							id
+							job_id
 							status
 							createdAt
 							job {
@@ -132,8 +133,13 @@ const CandidateHome = () => {
 				);
 				setCandidate(data.myCandidateProfile);
 				setApplicationCount(data.myApplicationCount || 0);
-				setRecentApplications(data.myApplications || []);
-				setRecentJobs(data.searchJobs?.jobs || []);
+				const apps = data.myApplications || [];
+				setRecentApplications(apps.slice(0, 5));
+				const appliedJobIds = new Set(apps.map((a) => a.job_id));
+				const latestOpenings = (data.searchJobs?.jobs || []).filter(
+					(job) => !appliedJobIds.has(job.id)
+				);
+				setRecentJobs(latestOpenings);
 				setLoading(false);
 			} catch (err) {
 				console.error("Fetch profile error:", err);
@@ -410,8 +416,27 @@ const CandidateHome = () => {
 											<Briefcase size={24} />
 										</div>
 										<div>
-											<h3>No jobs available yet</h3>
-											<p>Check back soon for new openings!</p>
+											<h3>
+												{applicationCount > 0
+													? "No new openings here"
+													: "No jobs available yet"}
+											</h3>
+											<p>
+												{applicationCount > 0
+													? "You've already applied to the newest listings shown here. Browse all jobs to find more roles you have not applied to yet."
+													: "Check back soon for new openings!"}
+											</p>
+											{applicationCount > 0 && (
+												<button
+													type="button"
+													className="btn btn-primary btn-sm"
+													style={{ marginTop: "0.75rem" }}
+													onClick={() => navigate("/candidate/jobs")}
+												>
+													<Search size={14} />
+													Browse all jobs
+												</button>
+											)}
 										</div>
 									</div>
 								</div>

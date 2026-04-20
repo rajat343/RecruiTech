@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
@@ -13,7 +13,6 @@ import {
   X,
   Filter,
   Loader,
-  Video,
 } from "lucide-react";
 import "./CandidateJobs.css";
 import "./CandidateHome.css";
@@ -86,8 +85,6 @@ const CandidateJobs = () => {
   });
 
   const [appliedJobs, setAppliedJobs] = useState(new Set());
-  const [applicationMap, setApplicationMap] = useState({});
-  const [interviewMap, setInterviewMap] = useState({});
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applyingJob, setApplyingJob] = useState(null);
@@ -98,6 +95,11 @@ const CandidateJobs = () => {
   const [applySuccess, setApplySuccess] = useState(false);
 
   const offsetRef = useRef(0);
+
+  const visibleJobs = useMemo(
+    () => jobs.filter((job) => !appliedJobs.has(job.id)),
+    [jobs, appliedJobs]
+  );
 
   // Commit current UI inputs into activeFilters (triggers the fetch effect)
   const commitFilters = () => {
@@ -161,7 +163,7 @@ const CandidateJobs = () => {
     return () => { cancelled = true; };
   }, [activeFilters, token]);
 
-  // Fetch applied job IDs and interview status once on mount
+  // Fetch applied job IDs once on mount (used to hide those roles from this list)
   useEffect(() => {
     if (!token) return;
     const fetchApplied = async () => {
@@ -173,21 +175,6 @@ const CandidateJobs = () => {
         );
         const apps = data.myApplications || [];
         setAppliedJobs(new Set(apps.map((a) => a.job_id)));
-
-        const appMap = {};
-        apps.forEach((a) => { appMap[a.job_id] = a.id; });
-        setApplicationMap(appMap);
-
-        const interviewData = await graphqlRequest(
-          `query { myInterviews { id application_id interview_token status overall_score job_title results_released } }`,
-          {},
-          token
-        );
-        const iMap = {};
-        (interviewData.myInterviews || []).forEach((iv) => {
-          iMap[iv.application_id] = iv;
-        });
-        setInterviewMap(iMap);
       } catch {
         // Candidate may not have a profile yet
       }
@@ -389,7 +376,9 @@ const CandidateJobs = () => {
 
         <div className="jobs-results-header">
           <span className="results-count">
-            {loading ? "Searching..." : `${total} job${total !== 1 ? "s" : ""} found`}
+            {loading
+              ? "Searching..."
+              : `${visibleJobs.length} job${visibleJobs.length !== 1 ? "s" : ""} open to apply`}
           </span>
         </div>
 
@@ -404,16 +393,42 @@ const CandidateJobs = () => {
             <h3>No jobs found</h3>
             <p>Try adjusting your search or filters</p>
           </div>
+        ) : visibleJobs.length === 0 ? (
+          <div className="empty-state">
+            <CheckCircle size={48} style={{ color: "var(--accent-cyan, #22d3ee)" }} />
+            <h3>You have applied to these listings</h3>
+            <p>
+              {jobs.length < total
+                ? "Load more to see additional openings, or change your filters."
+                : "There are no other openings in this list right now. Try a new search or check back later."}
+            </p>
+            {jobs.length < total && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: "1rem" }}
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader size={16} className="spin" /> Loading...
+                  </>
+                ) : (
+                  "Load more jobs"
+                )}
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <div className="jobs-grid">
-              {jobs.map((job) => {
+              {visibleJobs.map((job) => {
                 const salary = formatSalary(
                   job.salary_min,
                   job.salary_max,
                   job.salary_currency
                 );
-                const isApplied = appliedJobs.has(job.id);
 
                 return (
                   <div className="job-search-card" key={job.id}>
@@ -475,51 +490,13 @@ const CandidateJobs = () => {
                         >
                           View Details
                         </button>
-                        {isApplied ? (
-                          <>
-                            <span className="btn-applied">
-                              <CheckCircle size={16} />
-                              Applied
-                            </span>
-                            {(() => {
-                              const appId = applicationMap[job.id];
-                              const iv = appId ? interviewMap[appId] : null;
-                              if (!iv) return null;
-                              if (iv.status === "completed") {
-                                return (
-                                  <span className="btn-interview-done" title={iv.results_released ? `Score: ${iv.overall_score}` : "Results pending"}>
-                                    <CheckCircle size={14} />
-                                    {iv.results_released
-                                      ? `Interviewed (${Math.round(iv.overall_score || 0)}/100)`
-                                      : "Interview Complete"}
-                                  </span>
-                                );
-                              }
-                              if (iv.status === "scheduled" || iv.status === "in_progress") {
-                                return (
-                                  <a
-                                    className="btn btn-accent btn-sm"
-                                    href={`/interview/${iv.interview_token}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    <Video size={14} />
-                                    {iv.status === "in_progress" ? "Resume Interview" : "Take Interview"}
-                                  </a>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </>
-                        ) : (
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleApplyClick(job)}
-                          >
-                            <Send size={14} />
-                            Apply Now
-                          </button>
-                        )}
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleApplyClick(job)}
+                        >
+                          <Send size={14} />
+                          Apply Now
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -527,7 +504,7 @@ const CandidateJobs = () => {
               })}
             </div>
 
-            {jobs.length < total && (
+            {visibleJobs.length > 0 && jobs.length < total && (
               <div className="load-more-wrapper">
                 <button
                   className="btn btn-outline"
