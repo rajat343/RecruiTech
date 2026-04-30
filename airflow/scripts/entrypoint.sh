@@ -10,8 +10,10 @@ airflow db check
 # Create LLM pool (limits concurrent agent calls)
 airflow pools set llm_pool 3 "LLM rate limit pool" || true
 
-# Unpause the candidate evaluation DAG
+# Unpause DAGs
 airflow dags unpause candidate_evaluation 2>/dev/null || true
+airflow dags unpause comm_notification 2>/dev/null || true
+airflow dags unpause rejection_feedback 2>/dev/null || true
 
 # Start the webserver
 exec airflow webserver

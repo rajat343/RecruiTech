@@ -1,5 +1,6 @@
 const Candidate = require("../../../models/candidate.schema");
 const User = require("../../../models/user.schema");
+const { sendCommNotification } = require("../../../utils/commNotificationProducer");
 
 const createCandidate = async (candidateData, userId) => {
 	const user = await User.findById(userId);
@@ -31,6 +32,20 @@ const createCandidate = async (candidateData, userId) => {
 		is_deleted: false,
 	});
 	await candidate.save();
+
+	// Send registration notification via Kafka (non-blocking)
+	try {
+		await sendCommNotification({
+			notification_type: "candidate_registered",
+			candidate_id: candidate._id.toString(),
+			candidate_name: `${candidate.first_name} ${candidate.last_name}`,
+			candidate_email: candidate.email,
+			timestamp: new Date().toISOString(),
+		});
+	} catch (err) {
+		console.error("Failed to send registration notification (non-blocking):", err.message);
+	}
+
 	return candidate;
 };
 

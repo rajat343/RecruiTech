@@ -179,11 +179,6 @@ const AIAnalysisReport = ({ data, candidate, appId, onAction, statusUpdating }) 
 							{data.fit_level} Fit
 						</span>
 					</div>
-					{data.weight_profile && (
-						<p style={{ margin: 0, fontSize: "0.88rem", color: "var(--text-secondary)" }}>
-							{data.weight_profile.name} — {data.weight_profile.reason}
-						</p>
-					)}
 				</div>
 				<div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
 					<button

@@ -21,6 +21,7 @@ import {
 	Send,
 	Clock,
 } from "lucide-react";
+import RejectionFeedbackModal from "./RejectionFeedbackModal";
 import "./CandidateHome.css";
 
 const CandidateHome = () => {
@@ -62,6 +63,8 @@ const CandidateHome = () => {
 	const [applicationCount, setApplicationCount] = useState(0);
 	const [recentApplications, setRecentApplications] = useState([]);
 	const [recentJobs, setRecentJobs] = useState([]);
+	const [feedbackModal, setFeedbackModal] = useState({ open: false, data: null, jobTitle: "" });
+	const [feedbackLoading, setFeedbackLoading] = useState(false);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "candidate")) {
@@ -312,6 +315,51 @@ const CandidateHome = () => {
 		setEditError(null);
 	};
 
+	const handleViewFeedback = async (app) => {
+		if (!candidate?.id || !app.job?.id) return;
+		setFeedbackLoading(true);
+		try {
+			const data = await graphqlRequest(
+				`
+				query GetRejectionFeedback($candidate_id: String!, $job_id: String!) {
+					rejectionFeedback(candidate_id: $candidate_id, job_id: $job_id) {
+						id
+						status
+						feedback {
+							summary
+							strengths
+							growth_areas {
+								area
+								current_level
+								suggestion
+								resources
+							}
+							next_steps
+							encouragement
+						}
+					}
+				}
+				`,
+				{ candidate_id: candidate.id, job_id: app.job.id },
+				token
+			);
+			setFeedbackModal({
+				open: true,
+				data: data.rejectionFeedback || { status: "generating" },
+				jobTitle: app.job?.title || "",
+			});
+		} catch (err) {
+			console.error("Error fetching feedback:", err);
+			setFeedbackModal({
+				open: true,
+				data: { status: "generating" },
+				jobTitle: app.job?.title || "",
+			});
+		} finally {
+			setFeedbackLoading(false);
+		}
+	};
+
 	return (
 		<div className="dashboard-page">
 			<div className="container">
@@ -517,6 +565,17 @@ const CandidateHome = () => {
 												<span className="tag">
 													Applied {new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
 												</span>
+												{app.status === "rejected" && (
+													<button
+														className="btn btn-outline btn-sm"
+														style={{ marginLeft: "auto", gap: "0.4rem", fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+														onClick={() => handleViewFeedback(app)}
+														disabled={feedbackLoading}
+													>
+														<TrendingUp size={14} />
+														{feedbackLoading ? "Loading..." : "View Feedback"}
+													</button>
+												)}
 											</div>
 										</div>
 									))}
@@ -1125,6 +1184,15 @@ const CandidateHome = () => {
 							</div>
 						</div>
 					</div>
+				)}
+
+				{/* Rejection Feedback Modal */}
+				{feedbackModal.open && (
+					<RejectionFeedbackModal
+						feedback={feedbackModal.data}
+						jobTitle={feedbackModal.jobTitle}
+						onClose={() => setFeedbackModal({ open: false, data: null, jobTitle: "" })}
+					/>
 				)}
 			</div>
 		</div>

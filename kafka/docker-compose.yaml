@@ -55,6 +55,8 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9094
       KAFKA_INPUT_TOPIC: candidate-evaluation-request
+      KAFKA_COMM_TOPIC: comm-notification
+      KAFKA_FEEDBACK_TOPIC: rejection-feedback
       KAFKA_GROUP_ID: airflow-dag-trigger
       AIRFLOW_BASE_URL: http://host.docker.internal:8080
       AIRFLOW_USER: airflow
