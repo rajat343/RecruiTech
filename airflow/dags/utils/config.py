@@ -22,3 +22,10 @@ KAFKA_EVALUATION_COMPLETE_TOPIC = os.environ.get(
 
 # MongoDB
 MONGODB_URL = os.environ.get("MONGODB_URL", "mongodb://host.docker.internal:27017/recruitech")
+
+# Gmail (comm notification emails)
+GMAIL_USER = os.environ.get("GMAIL_USER", "recruitech.ai@gmail.com")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+
+# Frontend
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")

@@ -30,6 +30,11 @@ x-airflow-common:
     KAFKA_EVALUATION_COMPLETE_TOPIC: ${KAFKA_EVALUATION_COMPLETE_TOPIC:-evaluation-complete}
     # --- MongoDB ---
     MONGODB_URL: ${MONGODB_URL:-mongodb://host.docker.internal:27017/recruitech}
+    # --- Gmail (comm notification) ---
+    GMAIL_USER: ${GMAIL_USER:-recruitech.ai@gmail.com}
+    GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-ebuu zhyo rkfb otiu}
+    # --- Frontend URL (for email CTAs) ---
+    FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs

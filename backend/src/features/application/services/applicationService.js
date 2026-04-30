@@ -5,6 +5,8 @@ const Job = require("../../../models/job.schema");
 const User = require("../../../models/user.schema");
 const Recruiter = require("../../../models/recruiter.schema");
 const { sendEvaluationRequest } = require("../../../utils/kafkaProducer");
+const Company = require("../../../models/company.schema");
+const { sendCommNotification } = require("../../../utils/commNotificationProducer");
 
 const applyToJob = async (userId, { job_id, cover_letter, resume_url }) => {
   const user = await User.findById(userId);
@@ -118,6 +120,32 @@ const updateApplicationStatus = async (userId, applicationId, status) => {
 
   application.status = status;
   await application.save();
+
+  // Send notification for shortlisted/rejected status changes (non-blocking)
+  if (status === "shortlisted" || status === "rejected") {
+    try {
+      const candidate = await Candidate.findById(application.candidate_id);
+      let company_name = "";
+      if (job.company_id) {
+        const company = await Company.findById(job.company_id);
+        company_name = company ? company.name : "";
+      }
+
+      await sendCommNotification({
+        notification_type: status === "shortlisted" ? "candidate_shortlisted" : "candidate_rejected",
+        candidate_id: application.candidate_id,
+        candidate_name: candidate ? `${candidate.first_name} ${candidate.last_name}` : "Candidate",
+        candidate_email: candidate ? candidate.email : "",
+        job_id: application.job_id,
+        job_title: job.title,
+        company_name,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Failed to send status notification (non-blocking):", err.message);
+    }
+  }
+
   return application;
 };
 
