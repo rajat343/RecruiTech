@@ -137,7 +137,7 @@ const CandidateHome = () => {
 				setCandidate(data.myCandidateProfile);
 				setApplicationCount(data.myApplicationCount || 0);
 				const apps = data.myApplications || [];
-				setRecentApplications(apps.slice(0, 5));
+				setRecentApplications(apps);
 				const appliedJobIds = new Set(apps.map((a) => a.job_id));
 				const latestOpenings = (data.searchJobs?.jobs || []).filter(
 					(job) => !appliedJobIds.has(job.id)
@@ -565,10 +565,18 @@ const CandidateHome = () => {
 												<span className="tag">
 													Applied {new Date(app.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
 												</span>
+												<button
+													className="btn btn-outline btn-sm"
+													style={{ marginLeft: "auto", gap: "0.4rem", fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+													onClick={() => navigate(`/jobs/${app.job_id}`)}
+												>
+													<Search size={14} />
+													View Details
+												</button>
 												{app.status === "rejected" && (
 													<button
 														className="btn btn-outline btn-sm"
-														style={{ marginLeft: "auto", gap: "0.4rem", fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
+														style={{ marginLeft: "0.5rem", gap: "0.4rem", fontSize: "0.8rem", padding: "0.3rem 0.75rem" }}
 														onClick={() => handleViewFeedback(app)}
 														disabled={feedbackLoading}
 													>
