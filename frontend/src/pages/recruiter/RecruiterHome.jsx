@@ -15,6 +15,7 @@ import {
 	ArrowRight,
 	CalendarDays,
 	MapPin,
+	Shield,
 } from "lucide-react";
 import "../candidate/CandidateHome.css";
 
@@ -62,6 +63,7 @@ const RecruiterHome = () => {
 		location_type: "onsite",
 		location: "",
 		deadline: "",
+		sponsorship_available: false,
 		salary_min: "",
 		salary_max: "",
 		salary_currency: "USD",
@@ -106,6 +108,7 @@ const RecruiterHome = () => {
 							location_type
 							location
 							deadline
+							sponsorship_available
 							salary_min
 							salary_max
 							salary_currency
@@ -323,6 +326,7 @@ const RecruiterHome = () => {
 			location_type: "onsite",
 			location: "",
 			deadline: "",
+			sponsorship_available: false,
 			salary_min: "",
 			salary_max: "",
 			salary_currency: "USD",
@@ -388,6 +392,7 @@ const RecruiterHome = () => {
 					location_type: jobForm.location_type,
 					location: jobForm.location.trim(),
 					deadline: deadlineDate.toISOString(),
+					sponsorship_available: jobForm.sponsorship_available === true,
 					salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
 					salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
 					salary_currency: jobForm.salary_currency || null,
@@ -408,6 +413,7 @@ const RecruiterHome = () => {
 						location_type
 						location
 						deadline
+						sponsorship_available
 						salary_min
 						salary_max
 						salary_currency
@@ -657,6 +663,10 @@ const RecruiterHome = () => {
 															<span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
 																<MapPin size={12} />
 																{job.location_type === "remote" ? "Remote" : job.location}
+															</span>
+															<span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+																<Shield size={12} />
+																{job.sponsorship_available ? "Sponsorship available" : "No sponsorship"}
 															</span>
 														</div>
 													</div>
@@ -1100,6 +1110,64 @@ const RecruiterHome = () => {
 												>
 													Candidates can't apply after this date.
 												</p>
+											</div>
+											<div className="form-group">
+												<label>Sponsorship available *</label>
+												<p
+													style={{
+														fontSize: "0.75rem",
+														color: "var(--text-secondary)",
+														marginBottom: "0.5rem",
+													}}
+												>
+													Can this employer sponsor work visas or authorization for qualified candidates?
+												</p>
+												<div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+													<label
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.45rem",
+															cursor: "pointer",
+															fontSize: "0.9rem",
+														}}
+													>
+														<input
+															type="radio"
+															name="sponsorship_available"
+															checked={jobForm.sponsorship_available === true}
+															onChange={() =>
+																setJobForm({
+																	...jobForm,
+																	sponsorship_available: true,
+																})
+															}
+														/>
+														Yes
+													</label>
+													<label
+														style={{
+															display: "inline-flex",
+															alignItems: "center",
+															gap: "0.45rem",
+															cursor: "pointer",
+															fontSize: "0.9rem",
+														}}
+													>
+														<input
+															type="radio"
+															name="sponsorship_available"
+															checked={jobForm.sponsorship_available === false}
+															onChange={() =>
+																setJobForm({
+																	...jobForm,
+																	sponsorship_available: false,
+																})
+															}
+														/>
+														No
+													</label>
+												</div>
 											</div>
 										</div>
 									</div>

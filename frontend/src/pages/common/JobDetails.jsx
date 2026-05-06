@@ -15,6 +15,7 @@ import {
 	X,
 	AlertTriangle,
 	BarChart3,
+	Shield,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
@@ -70,6 +71,7 @@ const JOB_QUERY = `
 			is_active
 			application_count
 			createdAt
+			sponsorship_available
 		}
 	}
 `;
@@ -92,6 +94,8 @@ const JobDetails = () => {
 	const [applySuccess, setApplySuccess] = useState(false);
 
 	const [recruiterProfileId, setRecruiterProfileId] = useState(null);
+	/** When true, candidate indicated they need sponsorship */
+	const [candidateNeedsSponsorship, setCandidateNeedsSponsorship] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && !user) {
@@ -118,6 +122,20 @@ const JobDetails = () => {
 						setHasApplied(!!appliedData.hasApplied);
 					} catch (appsErr) {
 						console.error("Error checking applied state:", appsErr);
+					}
+					try {
+						const candData = await graphqlRequest(
+							`query { myCandidateProfile { sponsorship_needed } }`,
+							{},
+							token
+						);
+						const sn = candData.myCandidateProfile?.sponsorship_needed;
+						setCandidateNeedsSponsorship(
+							typeof sn === "boolean" ? sn : null
+						);
+					} catch (candErr) {
+						console.error("Error loading candidate profile:", candErr);
+						setCandidateNeedsSponsorship(null);
 					}
 				} else if (user?.role === "recruiter") {
 					try {
@@ -160,6 +178,11 @@ const JobDetails = () => {
 		user?.role === "recruiter" &&
 		recruiterProfileId &&
 		job?.recruiter_id === recruiterProfileId;
+
+	const sponsorshipMismatch =
+		user?.role === "candidate" &&
+		candidateNeedsSponsorship === true &&
+		job?.sponsorship_available !== true;
 
 	const handleApplyClick = () => {
 		setCoverLetter("");
@@ -389,6 +412,15 @@ const JobDetails = () => {
 								label="Deadline"
 								value={deadlineDate ? formatDate(job.deadline) : "—"}
 							/>
+							<DetailCell
+								icon={<Shield size={14} />}
+								label="Sponsorship"
+								value={
+									job.sponsorship_available
+										? "Available for this role"
+										: "Not offered"
+								}
+							/>
 							{user?.role === "recruiter" && (
 								<DetailCell
 									icon={<Users size={14} />}
@@ -453,6 +485,25 @@ const JobDetails = () => {
 						<div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
 							{user?.role === "candidate" && (
 								<>
+									{sponsorshipMismatch && !hasApplied && !deadlinePassed && (
+										<span
+											style={{
+												width: "100%",
+												marginBottom: "0.25rem",
+												padding: "0.65rem 0.9rem",
+												borderRadius: "0.5rem",
+												background: "rgba(245, 158, 11, 0.12)",
+												border: "1px solid rgba(245, 158, 11, 0.35)",
+												color: "#fbbf24",
+												fontSize: "0.85rem",
+												lineHeight: 1.45,
+											}}
+										>
+											This employer does not offer sponsorship for this role. Your profile says you need
+											sponsorship—you can browse roles marked as sponsorship available or update your
+											profile if that changes.
+										</span>
+									)}
 									{hasApplied ? (
 										<span
 											className="btn-applied"
@@ -480,6 +531,19 @@ const JobDetails = () => {
 											}}
 										>
 											<X size={16} /> Applications closed
+										</span>
+									) : sponsorshipMismatch ? (
+										<span
+											style={{
+												padding: "0.6rem 1.1rem",
+												borderRadius: "0.6rem",
+												background: "rgba(107, 114, 128, 0.15)",
+												color: "var(--text-secondary)",
+												fontWeight: 600,
+												fontSize: "0.9rem",
+											}}
+										>
+											Apply not available (sponsorship)
 										</span>
 									) : (
 										<button className="btn btn-primary" onClick={handleApplyClick}>

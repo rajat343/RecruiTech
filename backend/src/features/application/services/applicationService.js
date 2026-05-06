@@ -23,6 +23,15 @@ const applyToJob = async (userId, { job_id, cover_letter, resume_url }) => {
     throw new Error("The application deadline for this job has passed");
   }
 
+  if (
+    candidate.sponsorship_needed === true &&
+    job.sponsorship_available !== true
+  ) {
+    throw new Error(
+      "This role does not offer visa sponsorship. Update your profile if you do not require sponsorship, or apply only to roles marked as sponsorship available.",
+    );
+  }
+
   const existing = await Application.findOne({
     job_id,
     candidate_id: candidate._id.toString(),

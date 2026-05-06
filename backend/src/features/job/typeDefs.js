@@ -42,6 +42,7 @@ const jobTypeDefs = gql`
     company_name: String
     application_count: Int
     deadline: String
+    sponsorship_available: Boolean!
     createdAt: String!
     updatedAt: String!
   }
@@ -54,6 +55,7 @@ const jobTypeDefs = gql`
     location_type: LocationType!
     location: String!
     deadline: String!
+    sponsorship_available: Boolean!
     salary_min: Int
     salary_max: Int
     salary_currency: String

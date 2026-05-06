@@ -38,6 +38,7 @@ const createJob = async (jobData, userId) => {
     throw new Error("Application deadline must be today or in the future");
   }
   jobPayload.deadline = deadlineDate;
+  jobPayload.sponsorship_available = jobData.sponsorship_available === true;
 
   const job = new Job(jobPayload);
 
@@ -56,8 +57,15 @@ const getJobById = async (jobId) => {
   return Job.findOne({ _id: jobId, is_deleted: false });
 };
 
-const searchJobs = async (filters = {}, { limit = 20, offset = 0 }) => {
+const searchJobs = async (
+  filters = {},
+  { limit = 20, offset = 0, sponsorshipAvailableOnly = false } = {},
+) => {
   const query = { is_deleted: false, is_active: true };
+
+  if (sponsorshipAvailableOnly) {
+    query.sponsorship_available = true;
+  }
 
   if (filters.search) {
     const tokens = filters.search

@@ -28,6 +28,8 @@ const jobSchema = new mongoose.Schema(
     salary_currency: { type: String, default: "USD" },
     skills: { type: [String], default: [] },
     apply_url: { type: String },
+    /** Employer offers visa / work authorization sponsorship for this role */
+    sponsorship_available: { type: Boolean, default: false },
     is_active: { type: Boolean, default: true },
     is_deleted: { type: Boolean, default: false },
     metadata: { type: Object },

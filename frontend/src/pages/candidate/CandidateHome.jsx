@@ -21,6 +21,7 @@ import {
 	Send,
 	Clock,
 	Video,
+	Shield,
 } from "lucide-react";
 import RejectionFeedbackModal from "./RejectionFeedbackModal";
 import "./CandidateHome.css";
@@ -138,6 +139,7 @@ const CandidateHome = () => {
 								employment_type
 								skills
 								deadline
+								sponsorship_available
 							}
 						}
 						myInterviews {
@@ -554,6 +556,12 @@ const CandidateHome = () => {
 											{Array.isArray(job.skills) && job.skills.slice(0, 3).map((skill) => (
 												<span className="tag" key={`${job.id}-${skill}`}>{skill}</span>
 											))}
+											{job.sponsorship_available && (
+												<span className="tag" title="Employer offers sponsorship">
+													<Shield size={12} style={{ verticalAlign: "middle", marginRight: "0.25rem" }} />
+													Sponsorship
+												</span>
+											)}
 										</div>
 										<button
 											className="btn btn-primary btn-sm"

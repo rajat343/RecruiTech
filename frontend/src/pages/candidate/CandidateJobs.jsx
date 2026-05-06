@@ -14,6 +14,7 @@ import {
   Filter,
   Loader,
   Video,
+  Shield,
 } from "lucide-react";
 import "./CandidateJobs.css";
 import "./CandidateHome.css";
@@ -82,6 +83,7 @@ const SEARCH_JOBS_QUERY = `
         skills
         company_name
         createdAt
+        sponsorship_available
       }
     }
   }
@@ -582,6 +584,12 @@ const CandidateJobs = () => {
                           : job.location_type?.charAt(0).toUpperCase() +
                             job.location_type?.slice(1)}
                       </span>
+                      {job.sponsorship_available && (
+                        <span className="meta-item" title="Employer offers sponsorship">
+                          <Shield size={14} />
+                          Sponsorship
+                        </span>
+                      )}
                     </div>
 
                     <p className="card-desc">{job.description}</p>

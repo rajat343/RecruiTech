@@ -1,5 +1,6 @@
 const { requireAuth } = require("../../middleware/auth");
 const jobService = require("./services/jobService");
+const Candidate = require("../../models/candidate.schema");
 
 const formatJob = (job) => ({
   id: job._id.toString(),
@@ -17,6 +18,7 @@ const formatJob = (job) => ({
   salary_currency: job.salary_currency,
   skills: job.skills,
   apply_url: job.apply_url,
+  sponsorship_available: job.sponsorship_available === true,
   is_active: job.is_active,
   is_deleted: job.is_deleted,
   createdAt: job.createdAt.toISOString(),
@@ -37,10 +39,21 @@ const jobResolvers = {
       const jobs = await jobService.getAllJobs({ limit, offset });
       return jobs.map(formatJob);
     },
-    searchJobs: async (parent, { filters, limit, offset }) => {
+    searchJobs: async (parent, { filters, limit, offset }, context) => {
+      let sponsorshipAvailableOnly = false;
+      if (context.user?.role === "candidate") {
+        const candidate = await Candidate.findOne({
+          user_id: context.user._id.toString(),
+          is_deleted: false,
+        });
+        if (candidate?.sponsorship_needed === true) {
+          sponsorshipAvailableOnly = true;
+        }
+      }
       const { jobs, total } = await jobService.searchJobs(filters || {}, {
         limit,
         offset,
+        sponsorshipAvailableOnly,
       });
       return {
         jobs: jobs.map(formatJob),
