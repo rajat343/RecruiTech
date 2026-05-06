@@ -491,8 +491,8 @@ const RecruiterHome = () => {
 
 				</div>
 
-				<div className="dashboard-content">
-					<div className="dashboard-section">
+				<div className="dashboard-content recruiter-dashboard-content">
+					<div className="dashboard-section recruiter-dashboard-section">
 						<h2>Active Job Postings</h2>
 						<div className="job-list">
 							{jobs.length === 0 ? (
@@ -800,7 +800,7 @@ const RecruiterHome = () => {
 						</div>
 					</div>
 
-					<div className="dashboard-sidebar">
+					<div className="dashboard-sidebar recruiter-dashboard-sidebar">
 						<div className="profile-card card">
 							<h3>Quick Actions</h3>
 							<div className="action-buttons">

@@ -79,6 +79,21 @@
 	gap: 2rem;
 }
 
+.recruiter-dashboard-content,
+.candidate-dashboard-content {
+	align-items: start;
+}
+
+.recruiter-dashboard-sidebar {
+	/* Align sidebar top with the job/openings list (below section header) */
+	padding-top: 3.3rem;
+}
+
+.candidate-dashboard-sidebar {
+	/* Align sidebar top with the openings list (below section header) */
+	padding-top: 4rem;
+}
+
 .dashboard-section h2 {
 	font-size: 1.5rem;
 	font-weight: 700;
@@ -238,6 +253,11 @@
 
 	.dashboard-sidebar {
 		order: -1;
+	}
+
+	.recruiter-dashboard-sidebar,
+	.candidate-dashboard-sidebar {
+		padding-top: 0;
 	}
 }
 
