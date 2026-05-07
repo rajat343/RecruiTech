@@ -22,6 +22,8 @@ import {
 	Clock,
 	Video,
 	Shield,
+	Eye,
+	ExternalLink,
 } from "lucide-react";
 import RejectionFeedbackModal from "./RejectionFeedbackModal";
 import "./CandidateHome.css";
@@ -76,6 +78,7 @@ const CandidateHome = () => {
 	const [myInterviews, setMyInterviews] = useState([]);
 	const [feedbackModal, setFeedbackModal] = useState({ open: false, data: null, jobTitle: "" });
 	const [feedbackLoading, setFeedbackLoading] = useState(false);
+	const [applicationDetailApp, setApplicationDetailApp] = useState(null);
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "candidate")) {
@@ -120,7 +123,10 @@ const CandidateHome = () => {
 							id
 							job_id
 							status
+							cover_letter
+							resume_url
 							createdAt
+							updatedAt
 							job {
 								id
 								title
@@ -350,6 +356,9 @@ const CandidateHome = () => {
 		setShowEditModal(false);
 		setEditError(null);
 	};
+
+	const formatApplicationStatus = (s) =>
+		s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
 	const handleViewFeedback = async (app) => {
 		if (!candidate?.id || !app.job?.id) return;
@@ -675,6 +684,33 @@ const CandidateHome = () => {
 														)}
 													</div>
 												)}
+											</div>
+
+											<div
+												style={{
+													display: "flex",
+													flexWrap: "wrap",
+													alignItems: "center",
+													justifyContent: "flex-end",
+													gap: "0.75rem",
+													marginTop: "1rem",
+													paddingTop: "0.85rem",
+													borderTop: "1px solid var(--border)",
+												}}
+											>
+												<button
+													type="button"
+													className="btn btn-primary btn-sm"
+													style={{
+														gap: "0.3rem",
+														fontSize: "0.75rem",
+														padding: "0.28rem 0.65rem",
+													}}
+													onClick={() => setApplicationDetailApp(app)}
+												>
+													<Eye size={13} />
+													View details
+												</button>
 											</div>
 										</div>
 									))}
@@ -1280,6 +1316,172 @@ const CandidateHome = () => {
 										</button>
 									</div>
 								</form>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Application details (recent applications) */}
+				{applicationDetailApp && (
+					<div className="modal-overlay" onClick={() => setApplicationDetailApp(null)}>
+						<div
+							className="modal-content"
+							style={{ maxWidth: "32rem" }}
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className="modal-header">
+								<h2>Application details</h2>
+								<button
+									type="button"
+									className="modal-close"
+									onClick={() => setApplicationDetailApp(null)}
+									aria-label="Close"
+								>
+									<X size={24} />
+								</button>
+							</div>
+							<div className="modal-body">
+								<div style={{ marginBottom: "1.25rem" }}>
+									<h3 style={{ margin: "0 0 0.35rem", fontSize: "1.1rem", color: "var(--text-primary)" }}>
+										{applicationDetailApp.job?.title || "Role"}
+									</h3>
+									<p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+										{applicationDetailApp.job?.company_name || "Company"}
+										{applicationDetailApp.job?.location ? ` · ${applicationDetailApp.job.location}` : ""}
+									</p>
+								</div>
+
+								<dl
+									style={{
+										display: "grid",
+										gap: "0.65rem",
+										margin: 0,
+										fontSize: "0.9rem",
+									}}
+								>
+									<div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+										<dt style={{ color: "var(--text-secondary)", margin: 0 }}>Status</dt>
+										<dd style={{ margin: 0, fontWeight: 600 }}>
+											{formatApplicationStatus(applicationDetailApp.status)}
+										</dd>
+									</div>
+									<div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+										<dt style={{ color: "var(--text-secondary)", margin: 0 }}>Applied</dt>
+										<dd style={{ margin: 0 }}>
+											{new Date(applicationDetailApp.createdAt).toLocaleString(undefined, {
+												dateStyle: "medium",
+												timeStyle: "short",
+											})}
+										</dd>
+									</div>
+									{applicationDetailApp.updatedAt &&
+										applicationDetailApp.updatedAt !== applicationDetailApp.createdAt && (
+											<div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+												<dt style={{ color: "var(--text-secondary)", margin: 0 }}>Last updated</dt>
+												<dd style={{ margin: 0 }}>
+													{new Date(applicationDetailApp.updatedAt).toLocaleString(undefined, {
+														dateStyle: "medium",
+														timeStyle: "short",
+													})}
+												</dd>
+											</div>
+										)}
+								</dl>
+
+								{(() => {
+									const iv = interviewByApplicationId[applicationDetailApp.id];
+									if (!iv || iv.status === "cancelled" || iv.status === "expired") return null;
+									return (
+										<p
+											style={{
+												marginTop: "1rem",
+												padding: "0.75rem",
+												borderRadius: "0.5rem",
+												background: "rgba(139, 92, 246, 0.1)",
+												color: "var(--text-secondary)",
+												fontSize: "0.85rem",
+												lineHeight: 1.5,
+											}}
+										>
+											<strong style={{ color: "var(--text-primary)" }}>AI interview: </strong>
+											{iv.status === "completed"
+												? iv.results_released
+													? `Completed — score ${Math.round(iv.overall_score ?? 0)}/100`
+													: "Completed — results pending"
+												: iv.status === "in_progress"
+												? "In progress — you can resume from this dashboard."
+												: "Scheduled — use Take AI interview on the card when you are ready."}
+										</p>
+									);
+								})()}
+
+								{applicationDetailApp.cover_letter && (
+									<div style={{ marginTop: "1rem" }}>
+										<p style={{ margin: "0 0 0.35rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+											Cover letter
+										</p>
+										<div
+											style={{
+												maxHeight: "9rem",
+												overflow: "auto",
+												padding: "0.75rem",
+												borderRadius: "0.5rem",
+												border: "1px solid var(--border)",
+												fontSize: "0.85rem",
+												lineHeight: 1.5,
+												color: "var(--text-primary)",
+												whiteSpace: "pre-wrap",
+											}}
+										>
+											{applicationDetailApp.cover_letter}
+										</div>
+									</div>
+								)}
+
+								{applicationDetailApp.resume_url && (
+									<div style={{ marginTop: "1rem" }}>
+										<p style={{ margin: "0 0 0.35rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+											Resume
+										</p>
+										<a
+											href={applicationDetailApp.resume_url}
+											target="_blank"
+											rel="noopener noreferrer"
+											style={{
+												display: "inline-flex",
+												alignItems: "center",
+												gap: "0.35rem",
+												color: "var(--accent-cyan)",
+												fontSize: "0.9rem",
+												fontWeight: 600,
+											}}
+										>
+											<ExternalLink size={14} />
+											Open resume link
+										</a>
+									</div>
+								)}
+
+								<div className="modal-actions" style={{ marginTop: "1.5rem" }}>
+									<button
+										type="button"
+										className="btn btn-outline"
+										onClick={() => setApplicationDetailApp(null)}
+									>
+										Close
+									</button>
+									<button
+										type="button"
+										className="btn btn-primary"
+										onClick={() => {
+											const jid = applicationDetailApp.job_id || applicationDetailApp.job?.id;
+											setApplicationDetailApp(null);
+											if (jid) navigate(`/jobs/${jid}`);
+										}}
+									>
+										View full job posting
+									</button>
+								</div>
 							</div>
 						</div>
 					</div>
