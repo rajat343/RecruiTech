@@ -145,6 +145,9 @@ const CandidateOnboarding = () => {
 		}
 
 		if (step === 3) {
+			const githubUrl = formData.github_url?.trim() || "";
+			const leetcodeUrl = formData.leetcode_url?.trim() || "";
+
 			if (
 				formData.linkedin_url &&
 				!isValidUrl(formData.linkedin_url)
@@ -152,7 +155,12 @@ const CandidateOnboarding = () => {
 				setError("Please enter a valid LinkedIn URL.");
 				return;
 			}
-			if (formData.github_url && !isValidUrl(formData.github_url)) {
+
+			if (!githubUrl) {
+				setError("GitHub URL is required.");
+				return;
+			}
+			if (!isValidUrl(githubUrl)) {
 				setError("Please enter a valid GitHub URL.");
 				return;
 			}
@@ -160,7 +168,9 @@ const CandidateOnboarding = () => {
 				setError("Please enter a valid portfolio URL.");
 				return;
 			}
-			if (formData.leetcode_url && !isValidUrl(formData.leetcode_url)) {
+
+			// LeetCode is optional (recommended). Only validate format if provided.
+			if (leetcodeUrl && !isValidUrl(leetcodeUrl)) {
 				setError("Please enter a valid LeetCode URL.");
 				return;
 			}
@@ -226,6 +236,27 @@ const CandidateOnboarding = () => {
 		) {
 			setError("Please complete the required core information.");
 			setStep(1);
+			return;
+		}
+
+		const githubUrl = formData.github_url?.trim() || "";
+		const leetcodeUrl = formData.leetcode_url?.trim() || "";
+
+		// Enforce required links on submit
+		if (!githubUrl) {
+			setError("GitHub URL is required.");
+			setStep(3);
+			return;
+		}
+		if (!isValidUrl(githubUrl)) {
+			setError("Please enter a valid GitHub URL.");
+			setStep(3);
+			return;
+		}
+		// LeetCode is optional (recommended). Only validate format if provided.
+		if (leetcodeUrl && !isValidUrl(leetcodeUrl)) {
+			setError("Please enter a valid LeetCode URL.");
+			setStep(3);
 			return;
 		}
 
@@ -815,7 +846,7 @@ const CandidateOnboarding = () => {
 									<div className="form-group">
 										<label htmlFor="github_url">
 											<Github size={18} />
-											GitHub URL
+											GitHub URL *
 										</label>
 										<input
 											type="url"
@@ -825,13 +856,14 @@ const CandidateOnboarding = () => {
 											placeholder="https://github.com/username"
 											value={formData.github_url}
 											onChange={handleChange}
+											required
 										/>
 									</div>
 
 									<div className="form-group">
 										<label htmlFor="portfolio_url">
 											<Globe size={18} />
-											Portfolio / Personal site
+											Portfolio / Personal site (recommended)
 										</label>
 										<input
 											type="url"
@@ -847,7 +879,7 @@ const CandidateOnboarding = () => {
 									<div className="form-group">
 										<label htmlFor="leetcode_url">
 											<Code2 size={18} />
-											LeetCode URL (optional)
+											LeetCode URL (recommended)
 										</label>
 										<input
 											type="url"
@@ -1449,29 +1481,6 @@ const CandidateOnboarding = () => {
 											value={formData.profile_summary}
 											onChange={handleChange}
 										/>
-									</div>
-
-									<div className="form-group">
-										<label htmlFor="status">
-											Current job search status
-										</label>
-										<select
-											id="status"
-											name="status"
-											className="input-field"
-											value={formData.status}
-											onChange={handleChange}
-										>
-											<option value="actively_looking">
-												Actively Looking
-											</option>
-											<option value="casually_looking">
-												Casually Looking
-											</option>
-											<option value="not_looking">
-												Not Looking
-											</option>
-										</select>
 									</div>
 								</>
 							)}
