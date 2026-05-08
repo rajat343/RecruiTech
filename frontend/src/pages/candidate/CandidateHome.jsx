@@ -28,14 +28,6 @@ import {
 import RejectionFeedbackModal from "./RejectionFeedbackModal";
 import "./CandidateHome.css";
 
-/** Job listing is shown only if apply is still allowed (matches backend apply check). */
-const isJobDeadlineOpen = (job) => {
-	if (!job?.deadline) return true;
-	const t = new Date(job.deadline).getTime();
-	if (Number.isNaN(t)) return true;
-	return t >= Date.now();
-};
-
 const CandidateHome = () => {
 	const { user, loading: authLoading, token } = useAuth();
 	const navigate = useNavigate();
@@ -167,13 +159,12 @@ const CandidateHome = () => {
 				setCandidate(data.myCandidateProfile);
 				setApplicationCount(data.myApplicationCount || 0);
 				const apps = data.myApplications || [];
-				setRecentApplications(apps.slice(0, 5));
+				setRecentApplications(apps);
 				const appliedJobIds = new Set(apps.map((a) => a.job_id));
+				// Candidate dashboard should display jobs exactly as returned by the backend,
+				// even if the job deadline has already passed.
 				const latestOpenings = (data.searchJobs?.jobs || [])
-					.filter(
-						(job) =>
-							!appliedJobIds.has(job.id) && isJobDeadlineOpen(job)
-					)
+					.filter((job) => !appliedJobIds.has(job.id))
 					.slice(0, 10);
 				setRecentJobs(latestOpenings);
 				setMyInterviews(data.myInterviews || []);

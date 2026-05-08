@@ -557,38 +557,10 @@ const RecruiterHome = () => {
 						</div>
 					</div>
 
-					<div className="stat-card">
-						<div
-							className="stat-icon"
-							style={{ background: "rgba(245, 158, 11, 0.1)" }}
-						>
-							<Clock size={24} style={{ color: "#f59e0b" }} />
-						</div>
-						<div className="stat-content">
-							<div className="stat-value">15</div>
-							<div className="stat-label">Pending Reviews</div>
-						</div>
-					</div>
-
-					<div className="stat-card">
-						<div
-							className="stat-icon"
-							style={{ background: "rgba(139, 92, 246, 0.1)" }}
-						>
-							<TrendingUp
-								size={24}
-								style={{ color: "#8b5cf6" }}
-							/>
-						</div>
-						<div className="stat-content">
-							<div className="stat-value">342</div>
-							<div className="stat-label">Profile Views</div>
-						</div>
-					</div>
 				</div>
 
-				<div className="dashboard-content">
-					<div className="dashboard-section">
+				<div className="dashboard-content recruiter-dashboard-content">
+					<div className="dashboard-section recruiter-dashboard-section">
 						<h2>Active Job Postings</h2>
 
 						{jobs.length > 0 && (
@@ -1002,7 +974,7 @@ const RecruiterHome = () => {
 						</div>
 					</div>
 
-					<div className="dashboard-sidebar">
+					<div className="dashboard-sidebar recruiter-dashboard-sidebar">
 						<div className="profile-card card">
 							<h3>Quick Actions</h3>
 							<div className="action-buttons">
@@ -1035,16 +1007,6 @@ const RecruiterHome = () => {
 									🎯 Use AI matching for better candidates
 								</li>
 								<li>💬 Set up video screening</li>
-							</ul>
-						</div>
-
-						<div className="tips-card card">
-							<h3>Recent Activity</h3>
-							<ul className="tips-list">
-								<li>🔔 5 new applications today</li>
-								<li>👀 12 candidates viewed your jobs</li>
-								<li>✅ 2 interviews scheduled</li>
-								<li>📧 3 unread messages</li>
 							</ul>
 						</div>
 					</div>
