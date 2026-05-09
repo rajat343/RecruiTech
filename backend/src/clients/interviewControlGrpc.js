@@ -4,7 +4,7 @@ const protoLoader = require("@grpc/proto-loader");
 
 const PROTO_PATH = path.join(
 	__dirname,
-	"../../../interview-service/proto/interview_control.proto",
+	"../../proto/interview_control.proto",
 );
 
 let clientSingleton = null;
