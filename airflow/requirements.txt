@@ -22,3 +22,7 @@ pydantic>=2.0.0
 
 # CrewAI transitive dependency
 python-dotenv>=1.0.0
+
+# Gmail API (HTTPS email sending — Railway blocks SMTP ports)
+google-api-python-client>=2.100.0
+google-auth>=2.25.0

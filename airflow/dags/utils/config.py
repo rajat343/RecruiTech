@@ -27,5 +27,10 @@ MONGODB_URL = os.environ.get("MONGODB_URL", "mongodb://host.docker.internal:2701
 GMAIL_USER = os.environ.get("GMAIL_USER", "recruitech.ai@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 
+# Gmail OAuth2 (Gmail API over HTTPS — used on Railway where SMTP ports are blocked)
+GMAIL_OAUTH_CLIENT_ID = os.environ.get("GMAIL_OAUTH_CLIENT_ID", "")
+GMAIL_OAUTH_CLIENT_SECRET = os.environ.get("GMAIL_OAUTH_CLIENT_SECRET", "")
+GMAIL_OAUTH_REFRESH_TOKEN = os.environ.get("GMAIL_OAUTH_REFRESH_TOKEN", "")
+
 # Frontend
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")

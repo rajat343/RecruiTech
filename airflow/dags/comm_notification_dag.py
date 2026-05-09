@@ -24,6 +24,7 @@ DAG dependency:
 import json
 import logging
 import smtplib
+import os
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -70,9 +71,13 @@ def validate_inputs_fn(**context):
 
 
 def send_email_fn(**context):
-    """Construct HTML email and send via Gmail SMTP."""
+    """Construct HTML email and send via Gmail API (HTTPS) or SMTP fallback.
+
+    On Railway (SMTP ports blocked), uses Gmail API over HTTPS (port 443).
+    Locally (docker-compose), falls back to Gmail SMTP with App Password.
+    """
     from utils.email_templates import get_email_subject_and_body
-    from utils.config import GMAIL_USER, GMAIL_APP_PASSWORD
+    from utils.config import GMAIL_USER, GMAIL_APP_PASSWORD, GMAIL_OAUTH_REFRESH_TOKEN
 
     ti = context["ti"]
     payload = ti.xcom_pull(task_ids="validate_inputs")
@@ -82,15 +87,26 @@ def send_email_fn(**context):
 
     subject, html_body = get_email_subject_and_body(notification_type, payload)
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"RecruiTech <{GMAIL_USER}>"
-    msg["To"] = candidate_email
-    msg.attach(MIMEText(html_body, "html"))
+    # Use Gmail API if OAuth2 refresh token is configured (Railway deployment)
+    if GMAIL_OAUTH_REFRESH_TOKEN:
+        from utils.gmail_sender import send_email
+        send_email(
+            sender=GMAIL_USER,
+            to=candidate_email,
+            subject=subject,
+            html_body=html_body,
+        )
+    else:
+        # Fallback to SMTP for local development (docker-compose)
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"RecruiTech <{GMAIL_USER}>"
+        msg["To"] = candidate_email
+        msg.attach(MIMEText(html_body, "html"))
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_USER, candidate_email, msg.as_string())
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, candidate_email, msg.as_string())
 
     logger.info(f"Email sent to {candidate_email} for {notification_type}")
 
