@@ -17,9 +17,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Bake DAGs and scripts into image (Railway has no persistent volume mounts)
 COPY --chown=airflow:0 dags/ /opt/airflow/dags/
-COPY --chown=airflow:0 plugins/ /opt/airflow/plugins/
 COPY --chown=airflow:0 scripts/ /opt/airflow/scripts/
-COPY --chown=airflow:0 config/ /opt/airflow/config/
+RUN mkdir -p /opt/airflow/plugins /opt/airflow/config
 
 # Railway entrypoint: init DB + scheduler + webserver in one container
 COPY --chown=airflow:0 scripts/railway-entrypoint.sh /opt/airflow/railway-entrypoint.sh
