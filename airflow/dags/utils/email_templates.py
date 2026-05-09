@@ -11,6 +11,8 @@ def get_email_subject_and_body(notification_type: str, payload: dict) -> tuple[s
         return _shortlisted_email(candidate_name, payload)
     elif notification_type == "candidate_rejected":
         return _rejected_email(candidate_name, payload)
+    elif notification_type == "interview_sent":
+        return _interview_sent_email(candidate_name, payload)
     else:
         raise ValueError(f"Unknown notification_type: {notification_type}")
 
@@ -146,3 +148,52 @@ def _rejected_email(candidate_name: str, payload: dict) -> tuple[str, str]:
       <p style="color:#94a3b8;font-size:14px;margin:0;">We wish you the best in your career journey.</p>
     """
     return subject, _base_html("Application Update", body)
+
+
+def _interview_sent_email(candidate_name: str, payload: dict) -> tuple[str, str]:
+    from utils.config import FRONTEND_URL
+
+    job_title = payload.get("job_title", "the position")
+    company_name = payload.get("company_name", "")
+    interview_token = payload.get("interview_token", "")
+    interview_url = f"{FRONTEND_URL}/interview/{interview_token}" if interview_token else f"{FRONTEND_URL}/candidate/home"
+
+    subject = f"AI Interview Ready - {job_title}"
+    body = f"""
+      <h2 style="color:#ffffff;margin:0 0 16px;font-size:22px;">Exciting News, {candidate_name}!</h2>
+      <p style="color:#94a3b8;font-size:16px;line-height:1.6;margin:0 0 24px;">
+        Your AI-powered interview for <span style="color:#ffffff;font-weight:600;">{job_title}</span>
+        {f'at <span style="color:#22d3ee;">{company_name}</span>' if company_name else ""} is ready!
+      </p>
+      <div style="background-color:#0f1c2e;border-radius:8px;padding:24px;border-left:4px solid #22d3ee;margin:0 0 24px;">
+        <p style="color:#22d3ee;font-weight:600;margin:0 0 8px;font-size:16px;">What to expect:</p>
+        <ul style="color:#94a3b8;margin:0;padding:0 0 0 20px;line-height:1.8;">
+          <li>AI-led interview with real-time questions</li>
+          <li>Video and audio recording for recruiter review</li>
+          <li>Typical duration: 20-30 minutes</li>
+          <li>Complete at your convenience (link valid for 7 days)</li>
+        </ul>
+      </div>
+      <div style="background-color:#0f1c2e;border-radius:8px;padding:24px;border:1px solid #10b981;margin:0 0 24px;">
+        <p style="color:#10b981;font-weight:700;margin:0 0 10px;font-size:17px;">Tips for Success:</p>
+        <ul style="color:#94a3b8;margin:0;padding:0 0 0 20px;line-height:1.8;font-size:14px;">
+          <li>Use a quiet environment with good lighting</li>
+          <li>Check your camera and microphone beforehand</li>
+          <li>Have your resume and relevant materials handy</li>
+          <li>Be yourself and speak clearly</li>
+        </ul>
+      </div>
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#22d3ee,#06b6d4);border-radius:8px;padding:14px 40px;">
+            <a href="{interview_url}" style="color:#0a1525;font-weight:700;text-decoration:none;font-size:16px;">
+              Start My Interview
+            </a>
+          </td>
+        </tr>
+      </table>
+      <p style="color:#94a3b8;font-size:14px;margin:0;text-align:center;">
+        Good luck! The hiring team is looking forward to learning more about you.
+      </p>
+    """
+    return subject, _base_html("AI Interview Ready", body)

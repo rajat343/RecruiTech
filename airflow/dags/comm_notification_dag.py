@@ -2,17 +2,18 @@
 RecruiTech Communication Notification DAG
 
 Triggered via Airflow REST API by Kafka consumer (kafka_trigger.py).
-Sends HTML emails for: candidate_registered, candidate_shortlisted, candidate_rejected.
+Sends HTML emails for: candidate_registered, candidate_shortlisted, candidate_rejected, interview_sent.
 
 Expected DAG conf:
 {
-    "notification_type": "candidate_registered|candidate_shortlisted|candidate_rejected",
+    "notification_type": "candidate_registered|candidate_shortlisted|candidate_rejected|interview_sent",
     "candidate_id": "abc123",
     "candidate_name": "John Doe",
     "candidate_email": "john@example.com",
-    "job_id": "job456",         # only for shortlisted/rejected
-    "job_title": "...",         # only for shortlisted/rejected
-    "company_name": "...",      # only for shortlisted/rejected
+    "job_id": "job456",         # only for shortlisted/rejected/interview_sent
+    "job_title": "...",         # only for shortlisted/rejected/interview_sent
+    "company_name": "...",      # only for shortlisted/rejected/interview_sent
+    "interview_token": "...",   # only for interview_sent
     "timestamp": "2026-04-18T10:30:00Z"
 }
 
@@ -32,7 +33,7 @@ from airflow.operators.python import PythonOperator
 
 logger = logging.getLogger(__name__)
 
-VALID_TYPES = {"candidate_registered", "candidate_shortlisted", "candidate_rejected"}
+VALID_TYPES = {"candidate_registered", "candidate_shortlisted", "candidate_rejected", "interview_sent"}
 
 default_args = {
     "owner": "recruitech",
@@ -56,8 +57,10 @@ def validate_inputs_fn(**context):
         )
 
     required = ["candidate_id", "candidate_name", "candidate_email"]
-    if notification_type in ("candidate_shortlisted", "candidate_rejected"):
+    if notification_type in ("candidate_shortlisted", "candidate_rejected", "interview_sent"):
         required.extend(["job_id", "job_title"])
+    if notification_type == "interview_sent":
+        required.append("interview_token")
 
     missing = [f for f in required if not conf.get(f)]
     if missing:

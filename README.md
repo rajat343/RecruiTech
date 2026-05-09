@@ -122,9 +122,45 @@ RecruiTech/
 
 - Node.js (v20+)
 - MongoDB (v8+)
+- Docker & Docker Compose
 - npm or yarn
 
-### Installation
+### Quick Start (Recommended)
+
+**Use the automated startup script:**
+
+```bash
+# First time setup - copy .env.example files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp interview-service/.env.example interview-service/.env
+cp airflow/.env.example airflow/.env
+
+# Edit the .env files with your credentials (OpenAI API key, Gmail credentials, etc.)
+
+# Install dependencies
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+cd interview-service && npm install && cd ..
+
+# Start all services (Kafka, Backend, Interview Service, Frontend, Airflow)
+./start.sh
+
+# To stop all services
+./start.sh --stop
+```
+
+The script will:
+- Validate all environment variables
+- Start Kafka (Docker)
+- Start Backend on port 4000
+- Start Interview Service on port 5001
+- Start Frontend on port 5173
+- Start Airflow (Docker) on port 8080
+- Create logs directory automatically
+- Display all service URLs
+
+### Manual Installation
 
 1. **Clone the repository**
 

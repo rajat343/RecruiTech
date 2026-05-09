@@ -3,9 +3,12 @@ const Application = require("../../../models/application.schema");
 const Candidate = require("../../../models/candidate.schema");
 const Recruiter = require("../../../models/recruiter.schema");
 const Job = require("../../../models/job.schema");
+const User = require("../../../models/user.schema");
+const Company = require("../../../models/company.schema");
 const {
 	createInterviewSessionGrpc,
 } = require("../../../clients/interviewControlGrpc");
+const { sendCommNotification } = require("../../../utils/commNotificationProducer");
 
 /**
  * Recruiter sends an AI interview to a candidate for a specific application.
@@ -68,6 +71,30 @@ const sendAiInterview = async (recruiterId, { application_id }) => {
 	if (!created) {
 		throw new Error("Interview created via gRPC but not found in DB");
 	}
+
+	// Send email notification to candidate
+	try {
+		const user = await User.findById(application.user_id);
+		const company = await Company.findById(job.company_id);
+
+		if (user && candidate) {
+			await sendCommNotification({
+				notification_type: "interview_sent",
+				candidate_id: String(application.candidate_id),
+				candidate_name: `${candidate.first_name} ${candidate.last_name}`,
+				candidate_email: user.email,
+				job_id: String(application.job_id),
+				job_title: job.title,
+				company_name: company?.name || "",
+				interview_token: created.interview_token,
+				timestamp: new Date().toISOString(),
+			});
+		}
+	} catch (emailErr) {
+		console.error("Failed to send interview notification email:", emailErr.message);
+		// Don't throw - email failure shouldn't block interview creation
+	}
+
 	return created;
 };
 
