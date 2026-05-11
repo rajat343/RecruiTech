@@ -9,6 +9,10 @@ const {
 	createInterviewSessionGrpc,
 } = require("../../../clients/interviewControlGrpc");
 const { sendCommNotification } = require("../../../utils/commNotificationProducer");
+const {
+	getPresignedRecordingGetUrl,
+	parseVirtualHostedS3Url,
+} = require("../../../utils/s3PresignRecording");
 
 /**
  * Recruiter sends an AI interview to a candidate for a specific application.
@@ -169,10 +173,37 @@ const releaseResults = async (recruiterId, interviewId) => {
 	return interview;
 };
 
+/**
+ * playable URL for interview recording — presigned HTTPS for S3, or interview-service URL for local paths.
+ */
+const getRecordingPlaybackUrlForRecruiter = async (recruiterUserId, applicationId) => {
+	const interview = await getInterviewForApplicationAsRecruiter(
+		recruiterUserId,
+		applicationId
+	);
+	if (!interview?.recording_url) return null;
+
+	const raw = interview.recording_url.trim();
+
+	if (/^https?:\/\//i.test(raw)) {
+		if (parseVirtualHostedS3Url(raw)) {
+			const signed = await getPresignedRecordingGetUrl(raw);
+			return signed || null;
+		}
+		return raw;
+	}
+
+	const base = (process.env.INTERVIEW_SERVICE_HTTP_URL || "").replace(/\/$/, "");
+	if (!base) return null;
+	const path = raw.startsWith("/") ? raw : `/${raw}`;
+	return `${base}${path}`;
+};
+
 module.exports = {
 	sendAiInterview,
 	getMyInterviews,
 	getInterviewForApplication,
 	getInterviewForApplicationAsRecruiter,
 	releaseResults,
+	getRecordingPlaybackUrlForRecruiter,
 };

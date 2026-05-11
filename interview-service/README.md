@@ -34,6 +34,12 @@ Important variables:
 | `GRPC_PORT` | gRPC port (default `50051`) |
 | `GRPC_INTERNAL_SECRET` | Optional; if set, gRPC clients must send the same value in `internal_secret` |
 | `FRONTEND_URL` | CORS origin for REST/socket |
+| `AWS_S3_INTERVIEW_BUCKET` | If set (with `AWS_REGION`), finished interview videos upload to S3 instead of `./recordings` |
+| `AWS_REGION` | e.g. `us-east-2` (must match your bucket region) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Optional if the host uses an IAM role (ECS/EC2) |
+| `AWS_S3_INTERVIEW_PREFIX` | Optional object key prefix (default `interviews`) |
+
+**S3 playback:** Objects are private by default. Either add a bucket policy allowing `s3:GetObject` on `arn:aws:s3:::YOUR_BUCKET/interviews/*`, or serve recordings via CloudFront with OAC, or add an API that returns presigned GET URLs.
 
 ## 3. Start Kafka (optional but recommended)
 

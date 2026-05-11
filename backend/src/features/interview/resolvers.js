@@ -74,6 +74,17 @@ const interviewResolvers = {
 				? formatInterview(interview, { hideScores: !interview.results_released })
 				: null;
 		},
+
+		recordingPlaybackUrl: async (_, { application_id }, context) => {
+			const user = requireAuth(context);
+			if (user.role !== "recruiter") {
+				throw new Error("Only recruiters can fetch recording playback URLs");
+			}
+			return interviewService.getRecordingPlaybackUrlForRecruiter(
+				user._id.toString(),
+				application_id
+			);
+		},
 	},
 	Mutation: {
 		sendAiInterview: async (_, { input }, context) => {

@@ -49,6 +49,8 @@ const interviewTypeDefs = gql`
   type Query {
     myInterviews: [Interview!]!
     interviewForApplication(application_id: ID!): Interview
+    """Time-limited URL to watch recording (private S3) or playable URL — recruiters only."""
+    recordingPlaybackUrl(application_id: ID!): String
   }
 
   type Mutation {

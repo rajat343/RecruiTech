@@ -6,20 +6,18 @@ const router = express.Router();
 const { requireAuthExpress } = require("../middleware/auth");
 const interviewService = require("../services/interviewService");
 const Interview = require("../models/interview.schema");
+const { isS3Enabled, uploadInterviewRecording } = require("../config/s3");
 
 const RECORDINGS_DIR = path.join(__dirname, "../../recordings");
 if (!fs.existsSync(RECORDINGS_DIR)) {
 	fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-	destination: (req, file, cb) => cb(null, RECORDINGS_DIR),
-	filename: (req, file, cb) => {
-		const ext = file.mimetype.includes("webm") ? "webm" : "mp4";
-		cb(null, `${req.params.interviewId}-${Date.now()}.${ext}`);
-	},
+/** In-memory parse for recording POST, then S3 or local disk */
+const recordingUpload = multer({
+	storage: multer.memoryStorage(),
+	limits: { fileSize: 500 * 1024 * 1024 },
 });
-const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } });
 
 router.post("/create", requireAuthExpress, async (req, res) => {
 	try {
@@ -65,7 +63,7 @@ router.post("/create", requireAuthExpress, async (req, res) => {
 router.post(
 	"/:interviewId/recording",
 	requireAuthExpress,
-	upload.single("recording"),
+	recordingUpload.single("recording"),
 	async (req, res) => {
 		try {
 			const interview = await Interview.findById(req.params.interviewId);
@@ -75,11 +73,34 @@ router.post(
 			if (interview.user_id !== req.user.id) {
 				return res.status(403).json({ error: "Unauthorized" });
 			}
-			if (!req.file) {
+			if (!req.file || !req.file.buffer) {
 				return res.status(400).json({ error: "No recording file" });
 			}
 
-			const recordingUrl = `/api/interviews/recordings/${req.file.filename}`;
+			const ext =
+				/mp4|quicktime/i.test(req.file.mimetype || "") ? "mp4" : "webm";
+			let recordingUrl;
+
+			if (isS3Enabled()) {
+				recordingUrl = await uploadInterviewRecording(
+					req.file.buffer,
+					req.params.interviewId,
+					ext,
+					req.file.mimetype
+				);
+				console.log(
+					`Recording uploaded to S3 (${req.params.interviewId}): ${recordingUrl}`,
+				);
+			} else {
+				const filename = `${req.params.interviewId}-${Date.now()}.${ext}`;
+				const filePath = path.join(RECORDINGS_DIR, filename);
+				fs.writeFileSync(filePath, req.file.buffer);
+				recordingUrl = `/api/interviews/recordings/${filename}`;
+				console.log(
+					`Recording saved locally (${req.params.interviewId}); set AWS_S3_INTERVIEW_BUCKET + AWS_REGION for S3.`,
+				);
+			}
+
 			interview.recording_url = recordingUrl;
 			await interview.save();
 

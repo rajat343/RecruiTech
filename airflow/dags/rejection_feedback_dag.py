@@ -67,6 +67,33 @@ def fetch_data_fn(**context):
     except Exception:
         job = db["jobs"].find_one({"_id": job_id})
 
+    # Application → interview (AI interview strengths / improvements for feedback)
+    interview_feedback = None
+    application = db["applications"].find_one(
+        {"candidate_id": candidate_id, "job_id": job_id, "is_deleted": {"$ne": True}},
+    )
+    if application:
+        application_id_str = str(application.get("_id"))
+        interview_doc = db["interviews"].find_one(
+            {"application_id": application_id_str, "is_deleted": {"$ne": True}},
+            sort=[("updatedAt", pymongo.DESCENDING)],
+        )
+        if interview_doc:
+            overall_fb = (interview_doc.get("overall_feedback") or "").strip()
+            iv_strengths = [s for s in (interview_doc.get("strengths") or []) if s]
+            iv_improvements = [s for s in (interview_doc.get("improvements") or []) if s]
+            if overall_fb or iv_strengths or iv_improvements:
+                interview_feedback = {
+                    "overall_feedback": overall_fb,
+                    "strengths": iv_strengths,
+                    "improvements": iv_improvements,
+                }
+                logger.info(
+                    "Found interview notes for feedback "
+                    f"(application_id={application_id_str}, "
+                    f"strengths={len(iv_strengths)}, improvements={len(iv_improvements)})"
+                )
+
     client.close()
 
     # Clean evaluation for XCom (remove ObjectId)
@@ -94,6 +121,7 @@ def fetch_data_fn(**context):
         "job_description": job_description,
         "job_skills": job_skills,
         "evaluation": eval_data,
+        "interview_feedback": interview_feedback,
     }
 
 
@@ -106,14 +134,18 @@ def generate_feedback_fn(**context):
 
     logger.info(
         f"Generating feedback for candidate={data['candidate_id']}, "
-        f"job={data['job_id']}, has_evaluation={data['evaluation'] is not None}"
+        f"job={data['job_id']}, has_evaluation={data['evaluation'] is not None}, "
+        f"has_interview_feedback={bool(data.get('interview_feedback'))}"
     )
+
+    interview_feedback = data.get("interview_feedback")
 
     feedback = generate_rejection_feedback(
         evaluation=data.get("evaluation"),
         job_description=data.get("job_description", ""),
         job_title=data.get("job_title", ""),
         job_skills=data.get("job_skills", []),
+        interview_feedback=interview_feedback,
     )
 
     logger.info(f"Feedback generated with {len(feedback.get('growth_areas', []))} growth areas")

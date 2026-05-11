@@ -219,7 +219,7 @@ const evaluateAnswer = async (question, answer, resumeText, jobDescription, conv
 		.map((h) => `Q: ${h.question}\nA: ${h.answer}`)
 		.join("\n\n");
 
-	const prompt = `You are evaluating a candidate's answer during an interview.
+	const prompt = `You are evaluating ONE candidate answer during an interview. Score ONLY this answer against THIS question (not the whole interview).
 
 JOB DESCRIPTION (summary): ${jobDescription.substring(0, 500)}
 
@@ -229,6 +229,16 @@ ${historyStr}
 CURRENT QUESTION: ${question}
 CANDIDATE'S ANSWER: ${answer}
 
+Scoring rubric (integer 0-10):
+- **0 — No answer**: empty, refusal, "I don't know" with no substance, or the response does not address what was asked at all (completely off-topic / no attempt).
+- **1-3 — Weak**: minimal relevance; almost no usable technical detail or experience; missing what they did, why it mattered, or how they did it.
+- **4-5 — Partial**: touches the topic but thin on specifics; little evidence of real technical depth or concrete experience tied to the question.
+- **6-7 — Solid**: addresses the question with reasonable specifics; shows some technical judgment or real experience (what / why / how) aligned with the prompt.
+- **8-9 — Strong**: clear, specific technical knowledge and relevant experience; explains what they did, why those choices, and how it worked in context of the question.
+- **10 — Exceptional**: outstanding depth, crisp technical reasoning, and strong evidence mapped directly to every part of the question.
+
+When judging technical or role-specific questions, reward **concrete technical knowledge** and **first-hand experience**: tools, systems, trade-offs, metrics, constraints, failures, outcomes — and whether they explain **what** they did, **why** they chose it, and **how** it played out, **as far as the question asks**.
+
 Before scoring, scan the answer for concrete keywords and hooks you can reuse (technologies, systems, metrics, team roles, incidents, timelines, trade-offs, tools). If you propose a follow-up, it should reference those signals so the candidate feels heard.
 
 Behavioral follow-ups (when category stays or becomes behavioral) should lean on these professional themes where relevant (ideas only, not tag names aloud):
@@ -236,19 +246,12 @@ ${BEHAVIORAL_THEME_TAGS}
 
 Evaluate the answer and respond with ONLY a JSON object:
 {
-  "score": <number 1-10>,
+  "score": <integer 0-10>,
   "evaluation": "<brief 1-2 sentence evaluation>",
   "needs_follow_up": <true/false>,
   "follow_up_question": "<follow-up question if needs_follow_up is true, otherwise null>",
   "follow_up_category": "<category of follow-up if applicable>"
 }
-
-Score guidelines:
-- 1-3: Poor/irrelevant answer
-- 4-5: Basic answer, lacks depth
-- 6-7: Good answer with relevant details
-- 8-9: Excellent answer with strong specifics
-- 10: Outstanding, exceptional insight
 
 Only set needs_follow_up to true if:
 - The answer is vague and needs elaboration
@@ -275,16 +278,39 @@ Session policy (for your judgment): at most two follow-up questions will be used
 /**
  * Generate the final interview score and feedback
  */
+/**
+ * Sum per-question scores (0-10 each). Unanswered or unscored rows count as 0.
+ * Capped at 100 (max planned rows × 10).
+ */
+const sumQuestionScores = (questions) => {
+	let sum = 0;
+	for (const q of questions || []) {
+		const v = q?.score;
+		if (typeof v === "number" && !Number.isNaN(v)) {
+			sum += Math.max(0, Math.min(10, v));
+		}
+	}
+	return Math.min(100, Math.round(sum));
+};
+
 const generateFinalScore = async (questions, resumeText, jobDescription, jobTitle) => {
-	const qaHistory = questions
-		.filter((q) => q.candidate_answer)
-		.map(
-			(q, i) =>
-				`Q${i + 1} [${q.category}]: ${q.question_text}\nAnswer: ${q.candidate_answer}\nScore: ${q.score}/10\nEvaluation: ${q.ai_evaluation}`
-		)
+	const overall_score = sumQuestionScores(questions);
+
+	const qaHistory = (questions || [])
+		.map((q, i) => {
+			const ans = String(q.candidate_answer ?? "").trim();
+			const answerLine = ans.length ? ans : "(no answer)";
+			const sc =
+				typeof q.score === "number" && !Number.isNaN(q.score)
+					? Math.max(0, Math.min(10, q.score))
+					: 0;
+			return `Q${i + 1} [${q.category || "unknown"}]: ${q.question_text}\nAnswer: ${answerLine}\nScore (0-10, locked for this report): ${sc}/10\nEvaluation: ${q.ai_evaluation || "—"}`;
+		})
 		.join("\n\n");
 
-	const prompt = `You are generating a final interview assessment.
+	const prompt = `You are writing the narrative parts of a final interview report.
+
+IMPORTANT: The **overall numeric score is NOT your job**. It has already been computed as the **sum of per-question scores (each 0-10)** for every interview question row (unanswered = 0). That total is **${overall_score}** out of a maximum of 100. Do **not** invent a different overall score in your text; refer to performance qualitatively.
 
 JOB TITLE: ${jobTitle}
 JOB DESCRIPTION: ${jobDescription}
@@ -292,24 +318,17 @@ JOB DESCRIPTION: ${jobDescription}
 CANDIDATE RESUME:
 ${resumeText}
 
-INTERVIEW TRANSCRIPT:
-${qaHistory}
+FULL QUESTION LIST (including unanswered questions — score 0 means no substantive answer):
+${qaHistory || "No questions on record."}
 
-Generate a comprehensive final assessment. Return ONLY a JSON object:
+Return ONLY a JSON object (no overall_score field):
 {
-  "overall_score": <number 0-100>,
-  "overall_feedback": "<3-5 sentence comprehensive feedback>",
+  "overall_feedback": "<3-5 sentence comprehensive feedback that aligns with the per-question scores above>",
   "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
   "improvements": ["<area 1>", "<area 2>", "<area 3>"],
   "recommendation": "strong_hire|hire|maybe|no_hire",
   "summary": "<1 sentence summary for the recruiter>"
-}
-
-Score the candidate holistically considering:
-- Technical competence (40%)
-- Communication skills (20%)  
-- Problem-solving ability (20%)
-- Cultural fit and motivation (20%)`;
+}`;
 
 	const response = await openai.chat.completions.create({
 		model: MODEL,
@@ -321,11 +340,20 @@ Score the candidate holistically considering:
 		response_format: { type: "json_object" },
 	});
 
-	return JSON.parse(response.choices[0].message.content);
+	const parsed = JSON.parse(response.choices[0].message.content);
+	return {
+		overall_score,
+		overall_feedback: parsed.overall_feedback,
+		strengths: parsed.strengths || [],
+		improvements: parsed.improvements || [],
+		recommendation: parsed.recommendation,
+		summary: parsed.summary,
+	};
 };
 
 module.exports = {
 	generateQuestions,
 	evaluateAnswer,
 	generateFinalScore,
+	sumQuestionScores,
 };

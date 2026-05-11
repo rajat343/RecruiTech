@@ -376,7 +376,11 @@ const CandidateHome = () => {
 					}
 				}
 				`,
-				{ candidate_id: candidate.id, job_id: app.job.id },
+				{
+					candidate_id: candidate.id,
+					// Use application.job_id (matches Kafka / Airflow); job resolver can differ if job was removed.
+					job_id: app.job_id || app.job?.id,
+				},
 				token
 			);
 			setFeedbackModal({

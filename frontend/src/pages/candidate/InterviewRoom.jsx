@@ -31,6 +31,56 @@ const GRACE_PERIOD_MS = 4000;
 
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
+/** Browsers may report isTypeSupported=true but still throw on start(); try in order. */
+const VIDEO_RECORDER_MIME_CANDIDATES = [
+	"video/webm;codecs=vp9,opus",
+	"video/webm;codecs=vp8,opus",
+	"video/webm",
+	"video/mp4",
+];
+
+const AUDIO_RECORDER_MIME_CANDIDATES = [
+	"audio/webm;codecs=opus",
+	"audio/webm",
+	"audio/mp4",
+];
+
+/**
+ * Create MediaRecorder and call start(). Throws if nothing works.
+ * @returns {{ recorder: MediaRecorder, mimeType: string }}
+ */
+function tryCreateAndStartMediaRecorder(stream, mimeCandidates) {
+	const failures = [];
+	for (const mimeType of mimeCandidates) {
+		if (mimeType && typeof MediaRecorder.isTypeSupported === "function") {
+			if (!MediaRecorder.isTypeSupported(mimeType)) continue;
+		}
+		try {
+			const recorder = mimeType
+				? new MediaRecorder(stream, { mimeType })
+				: new MediaRecorder(stream);
+			recorder.start();
+			const resolved =
+				(recorder.mimeType && recorder.mimeType) || mimeType || "video/webm";
+			return { recorder, mimeType: resolved };
+		} catch (err) {
+			failures.push(`${mimeType || "default"}: ${err?.message || err}`);
+		}
+	}
+	try {
+		const recorder = new MediaRecorder(stream);
+		recorder.start();
+		return {
+			recorder,
+			mimeType: recorder.mimeType || "video/webm",
+		};
+	} catch (err) {
+		throw new Error(
+			`MediaRecorder failed (${failures.join(" | ") || err.message})`,
+		);
+	}
+}
+
 const InterviewRoom = () => {
 	const { token: interviewToken } = useParams();
 	const { token: authToken } = useAuth();
@@ -64,6 +114,7 @@ const InterviewRoom = () => {
 	const isRecordingRef = useRef(false);
 	const videoRecorderRef = useRef(null);
 	const videoChunksRef = useRef([]);
+	const videoRecordingMimeRef = useRef("video/webm");
 	const interviewIdRef = useRef(null);
 	const transcriptRef = useRef("");
 	const audioContextRef = useRef(null);
@@ -232,21 +283,44 @@ const InterviewRoom = () => {
 	const startAudioSegment = useCallback((socket, stream) => {
 		if (!stream || !socket?.connected) return;
 
-		const audioStream = new MediaStream(stream.getAudioTracks());
-		const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-			? "audio/webm;codecs=opus"
-			: "audio/webm";
+		const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === "live");
+		if (audioTracks.length === 0) {
+			console.warn("InterviewRoom: no live audio track; cannot record audio chunks.");
+			return;
+		}
+		const audioStream = new MediaStream(audioTracks);
+
+		let recorder;
+		let segmentMime;
+		try {
+			({ recorder, mimeType: segmentMime } = tryCreateAndStartMediaRecorder(
+				audioStream,
+				AUDIO_RECORDER_MIME_CANDIDATES,
+			));
+		} catch (firstErr) {
+			try {
+				({ recorder, mimeType: segmentMime } = tryCreateAndStartMediaRecorder(
+					stream,
+					VIDEO_RECORDER_MIME_CANDIDATES,
+				));
+			} catch {
+				console.error("InterviewRoom: MediaRecorder audio failed:", firstErr);
+				return;
+			}
+		}
 
 		const chunks = [];
-		const recorder = new MediaRecorder(audioStream, { mimeType });
-
 		recorder.ondataavailable = (event) => {
 			if (event.data.size > 0) chunks.push(event.data);
 		};
 
 		recorder.onstop = () => {
+			const blobType =
+				recorder.mimeType && recorder.mimeType.length > 0
+					? recorder.mimeType
+					: segmentMime;
 			if (chunks.length > 0 && socket.connected) {
-				const blob = new Blob(chunks, { type: mimeType });
+				const blob = new Blob(chunks, { type: blobType });
 				if (blob.size > 1000) {
 					blob.arrayBuffer().then((buffer) => {
 						socket.emit("audio-chunk", buffer);
@@ -258,7 +332,6 @@ const InterviewRoom = () => {
 			}
 		};
 
-		recorder.start();
 		audioRecorderRef.current = recorder;
 
 		audioIntervalRef.current = setTimeout(() => {
@@ -343,24 +416,38 @@ const InterviewRoom = () => {
 	// ─── Video recording for recruiter replay ───
 	const startVideoRecording = useCallback((stream) => {
 		if (!stream) return;
-		const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-			? "video/webm;codecs=vp9,opus"
-			: "video/webm";
-		const recorder = new MediaRecorder(stream, { mimeType });
 		videoChunksRef.current = [];
-		recorder.ondataavailable = (event) => {
-			if (event.data.size > 0) videoChunksRef.current.push(event.data);
-		};
-		recorder.start();
-		videoRecorderRef.current = recorder;
+		try {
+			const { recorder, mimeType } = tryCreateAndStartMediaRecorder(
+				stream,
+				VIDEO_RECORDER_MIME_CANDIDATES,
+			);
+			videoRecordingMimeRef.current =
+				mimeType.includes("mp4") ? "video/mp4" : "video/webm";
+			recorder.ondataavailable = (event) => {
+				if (event.data.size > 0) videoChunksRef.current.push(event.data);
+			};
+			videoRecorderRef.current = recorder;
+		} catch (err) {
+			console.error("InterviewRoom: video MediaRecorder failed:", err);
+			videoRecordingMimeRef.current = "video/webm";
+		}
 	}, []);
 
 	const uploadRecording = useCallback(async () => {
-		if (videoChunksRef.current.length === 0 || !interviewIdRef.current) return;
+		const chunks = videoChunksRef.current;
+		if (chunks.length === 0 || !interviewIdRef.current) {
+			console.warn(
+				"InterviewRoom: upload skipped (no video chunks or missing interview id).",
+			);
+			return;
+		}
 		try {
-			const blob = new Blob(videoChunksRef.current, { type: "video/webm" });
+			const mime = videoRecordingMimeRef.current || "video/webm";
+			const blob = new Blob(chunks, { type: mime });
+			const ext = mime.includes("mp4") ? "mp4" : "webm";
 			const formData = new FormData();
-			formData.append("recording", blob, "interview-recording.webm");
+			formData.append("recording", blob, `interview-recording.${ext}`);
 			await axios.post(
 				`${INTERVIEW_SERVICE_URL}/api/interviews/${interviewIdRef.current}/recording`,
 				formData,
@@ -372,11 +459,30 @@ const InterviewRoom = () => {
 				}
 			);
 		} catch (err) {
-			console.error("Failed to upload recording:", err);
+			console.error(
+				"Failed to upload recording:",
+				err.response?.status,
+				err.response?.data || err.message,
+			);
 		}
 	}, [authToken]);
 
-	// ─── Handle new question arriving (auto-start recording) ───
+	/** MediaRecorder.stop() is async; final chunks arrive before `stop` event — wait before upload. */
+	const waitForVideoRecorderStop = useCallback(() => {
+		return new Promise((resolve) => {
+			const rec = videoRecorderRef.current;
+			if (!rec || rec.state === "inactive") {
+				resolve();
+				return;
+			}
+			rec.onstop = () => resolve();
+			try {
+				rec.stop();
+			} catch {
+				resolve();
+			}
+		});
+	}, []);
 	const onQuestionReceived = useCallback(
 		(question, questionIndex, total) => {
 			isProcessingRef.current = false;
@@ -527,9 +633,7 @@ const InterviewRoom = () => {
 			isProcessingRef.current = false;
 			stopRecording();
 
-			if (videoRecorderRef.current && videoRecorderRef.current.state !== "inactive") {
-				videoRecorderRef.current.stop();
-			}
+			await waitForVideoRecorderStop();
 			await uploadRecording();
 			releaseMediaAndPeer();
 			socket.disconnect();
@@ -560,6 +664,7 @@ const InterviewRoom = () => {
 		interviewToken,
 		setupWebRTC,
 		startVideoRecording,
+		waitForVideoRecorderStop,
 		uploadRecording,
 		onQuestionReceived,
 		stopRecording,

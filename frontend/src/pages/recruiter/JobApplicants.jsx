@@ -8,7 +8,6 @@ import {
 	ExternalLink,
 	FileText,
 	Loader,
-	Play,
 	Send,
 	Star,
 	Trophy,
@@ -65,6 +64,29 @@ const rankAccent = (rank) => {
 	return { bg: "var(--bg-card)", color: "var(--text-secondary)" };
 };
 
+const INTERVIEW_BASE = import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5001";
+
+/** Fallback when backend did not presign — local interview-service recordings only (not raw private S3). */
+const recordingPlaybackHref = (recordingUrl) => {
+	if (!recordingUrl || typeof recordingUrl !== "string") return null;
+	const u = recordingUrl.trim();
+	if (/^https?:\/\//i.test(u)) return u;
+	if (u.startsWith("//")) return `${window.location.protocol}${u}`;
+	const path = u.startsWith("/") ? u : `/${u}`;
+	return `${INTERVIEW_BASE.replace(/\/$/, "")}${path}`;
+};
+
+/** Presigned S3 URLs from backend, or local playback via interview-service. */
+const recruiterPlaybackUrl = (appId, iv, playbackByAppId) => {
+	const fromApi = playbackByAppId[appId];
+	if (fromApi) return fromApi;
+	if (!iv?.recording_url) return null;
+	if (/^https?:\/\//i.test(iv.recording_url.trim()) && iv.recording_url.includes("amazonaws.com")) {
+		return null;
+	}
+	return recordingPlaybackHref(iv.recording_url);
+};
+
 const JobApplicants = () => {
 	const { jobId } = useParams();
 	const navigate = useNavigate();
@@ -88,6 +110,8 @@ const JobApplicants = () => {
 	const [triggerLoading, setTriggerLoading] = useState(false);
 	const [triggerSent, setTriggerSent] = useState(false);
 	const [triggerError, setTriggerError] = useState(null);
+	/** Backend presigned S3 URLs (or full local URLs) keyed by application id */
+	const [recordingPlaybackUrls, setRecordingPlaybackUrls] = useState({});
 
 	useEffect(() => {
 		if (!authLoading && (!user || user.role !== "recruiter")) {
@@ -170,6 +194,35 @@ const JobApplicants = () => {
 					})
 				);
 				setInterviewStatuses(ivStatuses);
+
+				const playMap = {};
+				await Promise.all(
+					apps.map(async (app) => {
+						const ivRow = ivStatuses[app.id];
+						if (
+							!ivRow ||
+							ivRow.status !== "completed" ||
+							!ivRow.recording_url
+						) {
+							return;
+						}
+						try {
+							const playData = await graphqlRequest(
+								`query RecordingPlay($application_id: ID!) {
+									recordingPlaybackUrl(application_id: $application_id)
+								}`,
+								{ application_id: app.id },
+								token
+							);
+							if (playData.recordingPlaybackUrl) {
+								playMap[app.id] = playData.recordingPlaybackUrl;
+							}
+						} catch (playErr) {
+							console.warn("recordingPlaybackUrl:", app.id, playErr);
+						}
+					})
+				);
+				setRecordingPlaybackUrls(playMap);
 
 				const candidateIds = apps.map((a) => a.candidate?.id).filter(Boolean);
 				if (candidateIds.length > 0) {
@@ -560,6 +613,14 @@ const JobApplicants = () => {
 							const score = evaluationScoresMap[app.candidate?.id]?.final_score;
 							const fitLevel = evaluationScoresMap[app.candidate?.id]?.fit_level;
 							const iv = interviewStatuses[app.id];
+							const recordingPlayHref = recruiterPlaybackUrl(
+								app.id,
+								iv,
+								recordingPlaybackUrls
+							);
+							const s3StoredRecording =
+								iv?.recording_url &&
+								String(iv.recording_url).includes("amazonaws.com");
 
 							return (
 								<div
@@ -602,6 +663,61 @@ const JobApplicants = () => {
 											{app.candidate?.email}
 											{app.candidate?.location_city && ` • ${app.candidate.location_city}${app.candidate.location_state ? `, ${app.candidate.location_state}` : ""}`}
 										</div>
+										{iv && (
+											<div
+												style={{
+													display: "flex",
+													flexWrap: "wrap",
+													alignItems: "center",
+													gap: "0.45rem",
+													marginTop: "0.35rem",
+													fontSize: "0.72rem",
+												}}
+											>
+												<span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
+													AI interview:
+												</span>
+												{iv.status === "completed" && (
+													<>
+														<span style={{ color: "#10b981" }}>Completed</span>
+														{recordingPlayHref ? (
+															<a
+																href={recordingPlayHref}
+																target="_blank"
+																rel="noopener noreferrer"
+																style={{
+																	color: "var(--accent-cyan)",
+																	fontWeight: 600,
+																	textDecoration: "none",
+																}}
+																title="Secure playback link — refresh applicants page later for a fresh link if it expires"
+															>
+																Watch recording
+																<ExternalLink size={11} style={{ marginLeft: "0.25rem", verticalAlign: "middle", opacity: 0.85 }} />
+															</a>
+														) : iv.recording_url ? (
+															s3StoredRecording ? (
+																<span
+																	style={{ color: "#ef4444", maxWidth: "14rem" }}
+																	title="Backend needs s3:GetObject on the interviews bucket + AWS_ACCESS_KEY_ID (or IAM role)"
+																>
+																	Recording link failed — check backend AWS permissions
+																</span>
+															) : (
+																<span style={{ color: "var(--text-secondary)" }}>Recording processing…</span>
+															)
+														) : (
+															<span style={{ color: "var(--text-secondary)" }}>No recording uploaded yet</span>
+														)}
+													</>
+												)}
+												{(iv.status === "scheduled" || iv.status === "in_progress") && (
+													<span style={{ color: "#8b5cf6" }}>
+														{iv.status === "in_progress" ? "In progress with candidate" : "Sent — pending"}
+													</span>
+												)}
+											</div>
+										)}
 										{Array.isArray(app.candidate?.skills) && app.candidate.skills.length > 0 && (
 											<div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", marginTop: "0.4rem" }}>
 												{app.candidate.skills.slice(0, 4).map((skill) => (
@@ -707,18 +823,6 @@ const JobApplicants = () => {
 															<CheckCircle size={14} />
 															{Math.round(iv.overall_score || 0)}/100
 														</span>
-														{iv.recording_url && (
-															<a
-																href={`${import.meta.env.VITE_INTERVIEW_SERVICE_URL || "http://localhost:5001"}${iv.recording_url}`}
-																target="_blank"
-																rel="noopener noreferrer"
-																className="btn btn-sm"
-																style={{ background: "rgba(99, 102, 241, 0.15)", color: "#6366f1", border: "1px solid rgba(99, 102, 241, 0.3)" }}
-																title="Watch recording"
-															>
-																<Play size={14} />
-															</a>
-														)}
 														{iv.results_released ? (
 															<span
 																className="btn btn-sm"

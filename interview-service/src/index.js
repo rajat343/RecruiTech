@@ -67,6 +67,17 @@ const start = async () => {
 			);
 			console.log(`WebSocket server ready`);
 			console.log(`REST API at http://localhost:${PORT}/api/interviews`);
+
+			const { isS3Enabled, BUCKET, REGION } = require("./config/s3");
+			if (isS3Enabled()) {
+				console.log(
+					`Recording uploads → S3 bucket "${BUCKET}" (region ${REGION})`,
+				);
+			} else {
+				console.log(
+					"Recording uploads → local ./recordings only (set AWS_S3_INTERVIEW_BUCKET + AWS_REGION for S3)",
+				);
+			}
 		});
 
 		if (GRPC_ENABLED) {

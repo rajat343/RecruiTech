@@ -7,10 +7,27 @@ const {
 } = require("../constants/interviewLimits");
 
 /**
+ * Rows never reached or submitted empty: score 0 so overall = sum of all rows.
+ */
+const applyUnansweredZeroScores = (questions) => {
+	for (const q of questions || []) {
+		const ans = String(q.candidate_answer ?? "").trim();
+		if (!ans) {
+			q.score = 0;
+			if (!String(q.ai_evaluation ?? "").trim()) {
+				q.ai_evaluation = "No answer provided.";
+			}
+		}
+	}
+};
+
+/**
  * Final scoring, persist interview as completed, publish Kafka (no socket I/O).
  */
 const finalizeInterviewDocument = async (interview) => {
 	try {
+		applyUnansweredZeroScores(interview.questions);
+
 		const finalAssessment = await aiService.generateFinalScore(
 			interview.questions,
 			interview.resume_text || "",
@@ -42,7 +59,8 @@ const finalizeInterviewDocument = async (interview) => {
 		console.error("finalizeInterviewDocument error:", error);
 		interview.status = "completed";
 		interview.completed_at = new Date();
-		interview.overall_score = 0;
+		applyUnansweredZeroScores(interview.questions);
+		interview.overall_score = aiService.sumQuestionScores(interview.questions);
 		interview.overall_feedback =
 			"Assessment generation failed. Please contact support.";
 		await interview.save();
@@ -71,21 +89,38 @@ const processCandidateAnswer = async (interview, answer) => {
 	currentQuestion.candidate_answer = answer;
 	currentQuestion.answered_at = new Date();
 
-	const conversationHistory = interview.questions
-		.slice(0, currentIndex)
-		.filter((q) => q.candidate_answer)
-		.map((q) => ({ question: q.question_text, answer: q.candidate_answer }));
+	const trimmedAnswer = String(answer ?? "").trim();
+	let evaluation;
 
-	const evaluation = await aiService.evaluateAnswer(
-		currentQuestion.question_text,
-		answer,
-		interview.resume_text || "",
-		interview.job_description || "",
-		conversationHistory,
-	);
+	if (!trimmedAnswer) {
+		currentQuestion.score = 0;
+		currentQuestion.ai_evaluation = "No answer provided.";
+		evaluation = {
+			score: 0,
+			evaluation: currentQuestion.ai_evaluation,
+			needs_follow_up: false,
+			follow_up_question: null,
+			follow_up_category: null,
+		};
+	} else {
+		const conversationHistory = interview.questions
+			.slice(0, currentIndex)
+			.filter((q) => q.candidate_answer)
+			.map((q) => ({ question: q.question_text, answer: q.candidate_answer }));
 
-	currentQuestion.score = evaluation.score;
-	currentQuestion.ai_evaluation = evaluation.evaluation;
+		evaluation = await aiService.evaluateAnswer(
+			currentQuestion.question_text,
+			answer,
+			interview.resume_text || "",
+			interview.job_description || "",
+			conversationHistory,
+		);
+
+		const raw = evaluation.score;
+		const sc = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+		currentQuestion.score = Number.isFinite(sc) ? Math.max(0, Math.min(10, Math.round(sc))) : 0;
+		currentQuestion.ai_evaluation = evaluation.evaluation;
+	}
 
 	const primarySlot = currentQuestion.focus_primary_index;
 	const onFirstWavePrimary =
