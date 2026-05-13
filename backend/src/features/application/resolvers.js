@@ -95,6 +95,17 @@ const applicationResolvers = {
       const user = requireAuth(context);
       return applicationService.hasApplied(user._id.toString(), job_id);
     },
+    myRecruiterApplicationsFeed: async (_, { limit, offset }, context) => {
+      const user = requireAuth(context);
+      if (user.role !== "recruiter") {
+        throw new Error("Only recruiters can access this feed");
+      }
+      const apps = await applicationService.getApplicationsForRecruiter(user._id.toString(), {
+        limit,
+        offset,
+      });
+      return apps.map(formatApplication);
+    },
   },
   Mutation: {
     applyToJob: async (_, { input }, context) => {

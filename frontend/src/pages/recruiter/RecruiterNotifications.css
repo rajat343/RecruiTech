@@ -1,0 +1,9 @@
+.recruiter-notifications-item:hover {
+	border-color: var(--accent-cyan, #22d3ee) !important;
+	box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.22);
+}
+
+.recruiter-notifications-item:focus-visible {
+	outline: 2px solid var(--accent-cyan, #22d3ee);
+	outline-offset: 2px;
+}

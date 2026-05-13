@@ -11,6 +11,7 @@ import CandidateJobs from "./pages/candidate/CandidateJobs";
 import InterviewRoom from "./pages/candidate/InterviewRoom";
 import RecruiterOnboarding from "./pages/recruiter/RecruiterOnboarding";
 import RecruiterHome from "./pages/recruiter/RecruiterHome";
+import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
 import JobApplicants from "./pages/recruiter/JobApplicants";
 import JobDetails from "./pages/common/JobDetails";
 
@@ -104,6 +105,14 @@ function App() {
 					element={
 						<ProtectedRoute allowedRoles={["recruiter"]}>
 							<RecruiterHome />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/recruiter/notifications"
+					element={
+						<ProtectedRoute allowedRoles={["recruiter"]}>
+							<RecruiterNotifications />
 						</ProtectedRoute>
 					}
 				/>

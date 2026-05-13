@@ -202,10 +202,38 @@ const hasApplied = async (userId, jobId) => {
   return !!app;
 };
 
+/**
+ * All applications across this recruiter's active jobs, newest first.
+ */
+const getApplicationsForRecruiter = async (userId, { limit = 100, offset = 0 }) => {
+  const recruiter = await Recruiter.findOne({ user_id: userId, is_deleted: false });
+  if (!recruiter) throw new Error("Recruiter profile not found");
+
+  const jobs = await Job.find({
+    recruiter_id: recruiter._id.toString(),
+    is_deleted: false,
+  }).select("_id");
+
+  if (!jobs.length) return [];
+
+  const jobIds = jobs.map((j) => j._id.toString());
+  const lim = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
+  const off = Math.max(parseInt(offset, 10) || 0, 0);
+
+  return Application.find({
+    job_id: { $in: jobIds },
+    is_deleted: false,
+  })
+    .limit(lim)
+    .skip(off)
+    .sort({ createdAt: -1 });
+};
+
 module.exports = {
   applyToJob,
   getMyApplications,
   getApplicationsForJob,
+  getApplicationsForRecruiter,
   updateApplicationStatus,
   withdrawApplication,
   getApplicationCountForJob,

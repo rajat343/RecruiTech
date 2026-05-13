@@ -169,8 +169,9 @@ def _interview_sent_email(candidate_name: str, payload: dict) -> tuple[str, str]
         <p style="color:#22d3ee;font-weight:600;margin:0 0 8px;font-size:16px;">What to expect:</p>
         <ul style="color:#94a3b8;margin:0;padding:0 0 0 20px;line-height:1.8;">
           <li>AI-led interview with real-time questions</li>
+          <li><span style="color:#e2e8f0;font-weight:600;">10 questions</span> in total — each question expects a <span style="color:#e2e8f0;font-weight:600;">brief, to-the-point</span> answer (spoken)</li>
           <li>Video and audio recording for recruiter review</li>
-          <li>Typical duration: 20-30 minutes</li>
+          <li>Typical duration: 10 - 15 minutes</li>
           <li>Complete at your convenience (link valid for 7 days)</li>
         </ul>
       </div>
@@ -180,7 +181,7 @@ def _interview_sent_email(candidate_name: str, payload: dict) -> tuple[str, str]
           <li>Use a quiet environment with good lighting</li>
           <li>Check your camera and microphone beforehand</li>
           <li>Have your resume and relevant materials handy</li>
-          <li>Be yourself and speak clearly</li>
+          <li>Be yourself and speak clearly — aim for concise answers (about a minute each) rather than long monologues</li>
         </ul>
       </div>
       <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
