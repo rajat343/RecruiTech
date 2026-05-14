@@ -7,10 +7,12 @@ import Signup from "./pages/common/Signup";
 import OAuthComplete from "./pages/common/OAuthComplete";
 import CandidateOnboarding from "./pages/candidate/CandidateOnboarding";
 import CandidateHome from "./pages/candidate/CandidateHome";
+import CandidateNotifications from "./pages/candidate/CandidateNotifications";
 import CandidateJobs from "./pages/candidate/CandidateJobs";
 import InterviewRoom from "./pages/candidate/InterviewRoom";
 import RecruiterOnboarding from "./pages/recruiter/RecruiterOnboarding";
 import RecruiterHome from "./pages/recruiter/RecruiterHome";
+import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
 import JobApplicants from "./pages/recruiter/JobApplicants";
 import JobDetails from "./pages/common/JobDetails";
 
@@ -73,6 +75,14 @@ function App() {
 					}
 				/>
 				<Route
+					path="/candidate/notifications"
+					element={
+						<ProtectedRoute allowedRoles={["candidate"]}>
+							<CandidateNotifications />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
 					path="/candidate/jobs"
 					element={
 						<ProtectedRoute allowedRoles={["candidate"]}>
@@ -104,6 +114,14 @@ function App() {
 					element={
 						<ProtectedRoute allowedRoles={["recruiter"]}>
 							<RecruiterHome />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/recruiter/notifications"
+					element={
+						<ProtectedRoute allowedRoles={["recruiter"]}>
+							<RecruiterNotifications />
 						</ProtectedRoute>
 					}
 				/>

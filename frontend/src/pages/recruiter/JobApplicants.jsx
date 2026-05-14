@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
+import { markJobApplicationsSeen } from "../../utils/recruiterApplicationNotifications";
 import AIAnalysisReport from "./AIAnalysisReport";
 import "../candidate/CandidateHome.css";
 
@@ -118,6 +119,11 @@ const JobApplicants = () => {
 			navigate("/login");
 		}
 	}, [user, authLoading, navigate]);
+
+	useEffect(() => {
+		if (!user?.id || !job?.id) return;
+		markJobApplicationsSeen(user.id, job.id, job.application_count);
+	}, [user?.id, job?.id, job?.application_count]);
 
 	useEffect(() => {
 		const load = async () => {

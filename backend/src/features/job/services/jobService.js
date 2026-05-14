@@ -40,6 +40,18 @@ const createJob = async (jobData, userId) => {
   jobPayload.deadline = deadlineDate;
   jobPayload.sponsorship_available = jobData.sponsorship_available === true;
 
+  const locationType = jobData.location_type;
+  const rawLocation =
+    jobData.location != null && typeof jobData.location === "string"
+      ? jobData.location.trim()
+      : "";
+
+  if (locationType !== "remote" && !rawLocation) {
+    throw new Error("Location is required for onsite and hybrid roles");
+  }
+  jobPayload.location =
+    locationType === "remote" && !rawLocation ? "Remote" : rawLocation;
+
   const job = new Job(jobPayload);
 
   await job.save();

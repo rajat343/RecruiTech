@@ -82,6 +82,46 @@
 	gap: 1rem;
 }
 
+.navbar-notifications-btn {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.75rem;
+	height: 2.75rem;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text-primary);
+	cursor: pointer;
+	transition: background var(--transition-fast), border-color var(--transition-fast),
+		color var(--transition-fast);
+}
+
+.navbar-notifications-btn:hover {
+	background: rgba(34, 211, 238, 0.1);
+	border-color: var(--accent-cyan, #22d3ee);
+	color: var(--accent-cyan, #22d3ee);
+}
+
+.navbar-notifications-badge {
+	position: absolute;
+	top: -0.2rem;
+	right: -0.2rem;
+	min-width: 1.125rem;
+	height: 1.125rem;
+	padding: 0 0.3rem;
+	border-radius: 999px;
+	background: #ef4444;
+	color: #fff;
+	font-size: 0.65rem;
+	font-weight: 700;
+	line-height: 1.125rem;
+	text-align: center;
+	box-shadow: 0 0 0 2px var(--primary-dark);
+}
+
 .navbar-dashboard-btn {
 	font-weight: 600;
 	white-space: nowrap;
@@ -118,6 +158,11 @@
 	.navbar-actions .btn {
 		padding: 0.5rem 1rem;
 		font-size: 0.875rem;
+	}
+
+	.navbar-notifications-btn {
+		width: 2.5rem;
+		height: 2.5rem;
 	}
 
 	.navbar-dashboard-btn {
