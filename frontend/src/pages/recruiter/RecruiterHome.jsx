@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { graphqlRequest } from "../../utils/graphql";
@@ -36,6 +36,163 @@ const formatDate = (isoString) => {
 	}
 };
 
+const EMPTY_JOB_FORM = {
+	title: "",
+	description: "",
+	employment_type: "full_time",
+	experience_level: "mid",
+	location_type: "onsite",
+	location: "",
+	deadline: "",
+	sponsorship_available: false,
+	salary_min: "",
+	salary_max: "",
+	salary_currency: "USD",
+	skills: "",
+	apply_url: "",
+};
+
+const EMPLOYMENT_TYPES = new Set([
+	"full_time",
+	"part_time",
+	"contract",
+	"internship",
+	"freelance",
+]);
+const EXPERIENCE_LEVELS = new Set(["junior", "mid", "senior", "lead"]);
+const LOCATION_TYPES = new Set(["onsite", "remote", "hybrid"]);
+const SALARY_CURRENCIES = new Set(["USD", "INR", "EUR", "GBP"]);
+
+const jobDraftStorageKey = (ownerId) =>
+	`recruitech_recruiter_job_draft_${ownerId}`;
+
+/** Drafts expire this many ms after the last save (close/typing flush updates `savedAt`). */
+const JOB_DRAFT_TTL_MS = 5 * 60 * 1000;
+
+/** True if the form is not exactly the default empty state (strict `!==` per field, incl. whitespace). */
+const jobFormDiffersFromEmpty = (form) => {
+	if (!form) return false;
+	return Object.keys(EMPTY_JOB_FORM).some(
+		(k) => form[k] !== EMPTY_JOB_FORM[k]
+	);
+};
+
+/** Auth user id preferred; recruiter.user_id matches user; recruiter.id is a different document id. */
+const getJobDraftOwnerId = (user, recruiter) => {
+	const raw = user?.id ?? recruiter?.user_id ?? recruiter?.id;
+	if (raw == null || raw === "") return null;
+	return String(raw);
+};
+
+const persistJobDraftToStorage = (ownerId, form) => {
+	if (!ownerId) return;
+	try {
+		if (jobFormDiffersFromEmpty(form)) {
+			localStorage.setItem(
+				jobDraftStorageKey(ownerId),
+				JSON.stringify({
+					savedAt: Date.now(),
+					form,
+				})
+			);
+		} else {
+			localStorage.removeItem(jobDraftStorageKey(ownerId));
+		}
+	} catch (e) {
+		console.warn("Could not save job draft:", e);
+	}
+};
+
+/** Merge a plain stored object into the canonical job form shape. */
+const normalizeJobFormFromStorageObject = (o) => {
+	if (!o || typeof o !== "object") return null;
+
+	const employment_type = EMPLOYMENT_TYPES.has(o.employment_type)
+		? o.employment_type
+		: EMPTY_JOB_FORM.employment_type;
+	const experience_level = EXPERIENCE_LEVELS.has(o.experience_level)
+		? o.experience_level
+		: EMPTY_JOB_FORM.experience_level;
+	const location_type = LOCATION_TYPES.has(o.location_type)
+		? o.location_type
+		: EMPTY_JOB_FORM.location_type;
+	const salary_currency = SALARY_CURRENCIES.has(o.salary_currency)
+		? o.salary_currency
+		: EMPTY_JOB_FORM.salary_currency;
+
+	return {
+		...EMPTY_JOB_FORM,
+		title: typeof o.title === "string" ? o.title : "",
+		description: typeof o.description === "string" ? o.description : "",
+		employment_type,
+		experience_level,
+		location_type,
+		location: typeof o.location === "string" ? o.location : "",
+		deadline: typeof o.deadline === "string" ? o.deadline : "",
+		sponsorship_available: o.sponsorship_available === true,
+		salary_min: typeof o.salary_min === "string" ? o.salary_min : "",
+		salary_max: typeof o.salary_max === "string" ? o.salary_max : "",
+		salary_currency,
+		skills: typeof o.skills === "string" ? o.skills : "",
+		apply_url: typeof o.apply_url === "string" ? o.apply_url : "",
+	};
+};
+
+/**
+ * Reads draft from localStorage: `{ savedAt, form }` with TTL, or legacy flat JSON.
+ * Removes the key if the wrapped draft is past TTL. Migrates legacy payloads to wrapped.
+ */
+const readJobDraftFromStorage = (raw, storageKey) => {
+	if (!raw || typeof raw !== "string") return null;
+	let parsed;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== "object") return null;
+
+	const now = Date.now();
+	const savedAtRaw = parsed.savedAt;
+	const savedAtNum =
+		typeof savedAtRaw === "number"
+			? savedAtRaw
+			: typeof savedAtRaw === "string" && savedAtRaw !== ""
+				? Number(savedAtRaw)
+				: NaN;
+	const formPayload = parsed.form;
+	const isWrapped =
+		Number.isFinite(savedAtNum) &&
+		formPayload != null &&
+		typeof formPayload === "object";
+
+	if (isWrapped) {
+		if (now - savedAtNum > JOB_DRAFT_TTL_MS) {
+			try {
+				localStorage.removeItem(storageKey);
+			} catch {
+				/* ignore */
+			}
+			return null;
+		}
+		return normalizeJobFormFromStorageObject(formPayload);
+	}
+
+	const legacyMerged = normalizeJobFormFromStorageObject(parsed);
+	if (!legacyMerged || !jobFormDiffersFromEmpty(legacyMerged)) {
+		return null;
+	}
+	try {
+		localStorage.setItem(
+			storageKey,
+			JSON.stringify({ savedAt: now, form: legacyMerged })
+		);
+	} catch {
+		/* ignore */
+	}
+	return legacyMerged;
+};
+
 const RecruiterHome = () => {
 	const { user, loading: authLoading, token } = useAuth();
 	const navigate = useNavigate();
@@ -58,23 +215,33 @@ const RecruiterHome = () => {
 	const [editError, setEditError] = useState(null);
 	const [jobs, setJobs] = useState([]);
 	const [showJobModal, setShowJobModal] = useState(false);
-	const [jobForm, setJobForm] = useState({
-		title: "",
-		description: "",
-		employment_type: "full_time",
-		experience_level: "mid",
-		location_type: "onsite",
-		location: "",
-		deadline: "",
-		sponsorship_available: false,
-		salary_min: "",
-		salary_max: "",
-		salary_currency: "USD",
-		skills: "",
-		apply_url: "",
-	});
+	const [jobForm, setJobForm] = useState({ ...EMPTY_JOB_FORM });
 	const [jobSaving, setJobSaving] = useState(false);
 	const [jobError, setJobError] = useState(null);
+	const [jobDraftRestored, setJobDraftRestored] = useState(false);
+	const jobDraftDebounceRef = useRef(null);
+	const jobFormRef = useRef(EMPTY_JOB_FORM);
+	const draftOwnerIdRef = useRef(null);
+	jobFormRef.current = jobForm;
+	draftOwnerIdRef.current = getJobDraftOwnerId(user, recruiter);
+
+	const writeJobDraftToStorage = useCallback(() => {
+		persistJobDraftToStorage(
+			draftOwnerIdRef.current,
+			jobFormRef.current
+		);
+	}, []);
+
+	const flushJobDraftToStorage = useCallback((formOverride) => {
+		if (jobDraftDebounceRef.current) {
+			clearTimeout(jobDraftDebounceRef.current);
+			jobDraftDebounceRef.current = null;
+		}
+		const form =
+			formOverride !== undefined ? formOverride : jobFormRef.current;
+		persistJobDraftToStorage(draftOwnerIdRef.current, form);
+	}, []);
+
 	const [totalApplicants, setTotalApplicants] = useState(0);
 
 	const [jobSearchInput, setJobSearchInput] = useState("");
@@ -151,6 +318,7 @@ const RecruiterHome = () => {
 					query GetRecruiterProfile {
 						myRecruiterProfile {
 							id
+							user_id
 							first_name
 							last_name
 							email
@@ -208,6 +376,55 @@ const RecruiterHome = () => {
 			fetchProfile();
 		}
 	}, [user, authLoading, navigate, token]);
+
+	/** Persist job posting draft while the create modal is open; flush on close/unmount so nothing is lost. */
+	useEffect(() => {
+		const ownerId = getJobDraftOwnerId(user, recruiter);
+		if (!showJobModal || !ownerId) return;
+
+		if (jobDraftDebounceRef.current) {
+			clearTimeout(jobDraftDebounceRef.current);
+		}
+		jobDraftDebounceRef.current = setTimeout(() => {
+			jobDraftDebounceRef.current = null;
+			writeJobDraftToStorage();
+		}, 400);
+
+		return () => {
+			if (jobDraftDebounceRef.current) {
+				clearTimeout(jobDraftDebounceRef.current);
+				jobDraftDebounceRef.current = null;
+			}
+			// Always persist latest ref snapshot (fixes overlay close before debounce fires).
+			writeJobDraftToStorage();
+		};
+	}, [
+		jobForm,
+		showJobModal,
+		user?.id,
+		recruiter?.id,
+		recruiter?.user_id,
+		writeJobDraftToStorage,
+	]);
+
+	/** Flush draft when the tab is hidden or the window is closed (refs hold latest form). */
+	useEffect(() => {
+		if (!showJobModal) return;
+		const sync = () => {
+			if (document.visibilityState === "hidden") {
+				writeJobDraftToStorage();
+			}
+		};
+		const onBeforeUnload = () => {
+			writeJobDraftToStorage();
+		};
+		document.addEventListener("visibilitychange", sync);
+		window.addEventListener("beforeunload", onBeforeUnload);
+		return () => {
+			document.removeEventListener("visibilitychange", sync);
+			window.removeEventListener("beforeunload", onBeforeUnload);
+		};
+	}, [showJobModal, writeJobDraftToStorage]);
 
 	if (authLoading || loading) {
 		return (
@@ -380,27 +597,52 @@ const RecruiterHome = () => {
 			return;
 		}
 
-		setJobForm({
-			title: "",
-			description: "",
-			employment_type: "full_time",
-			experience_level: "mid",
-			location_type: "onsite",
-			location: "",
-			deadline: "",
-			sponsorship_available: false,
-			salary_min: "",
-			salary_max: "",
-			salary_currency: "USD",
-			skills: "",
-			apply_url: "",
-		});
+		const draftOwnerId = getJobDraftOwnerId(user, recruiter);
+		let nextForm = { ...EMPTY_JOB_FORM };
+		setJobDraftRestored(false);
+		if (draftOwnerId) {
+			try {
+				const key = jobDraftStorageKey(draftOwnerId);
+				const merged = readJobDraftFromStorage(
+					localStorage.getItem(key),
+					key
+				);
+				if (merged && jobFormDiffersFromEmpty(merged)) {
+					nextForm = merged;
+					setJobDraftRestored(true);
+				}
+			} catch {
+				/* ignore */
+			}
+		}
+		setJobForm(nextForm);
 		setJobError(null);
 		setShowJobModal(true);
 	};
 
 	const handleCloseJobModal = () => {
+		// Pass live state so we never rely on a ref lagging one frame behind the last input.
+		flushJobDraftToStorage(jobForm);
 		setShowJobModal(false);
+		setJobError(null);
+	};
+
+	const handleDiscardJobDraft = () => {
+		if (jobDraftDebounceRef.current) {
+			clearTimeout(jobDraftDebounceRef.current);
+			jobDraftDebounceRef.current = null;
+		}
+		const draftOwnerId = getJobDraftOwnerId(user, recruiter);
+		if (draftOwnerId) {
+			try {
+				localStorage.removeItem(jobDraftStorageKey(draftOwnerId));
+			} catch {
+				/* ignore */
+			}
+		}
+		jobFormRef.current = { ...EMPTY_JOB_FORM };
+		setJobForm({ ...EMPTY_JOB_FORM });
+		setJobDraftRestored(false);
 		setJobError(null);
 	};
 
@@ -438,6 +680,13 @@ const RecruiterHome = () => {
 				throw new Error("Application deadline must be today or in the future.");
 			}
 
+			const locTrim = jobForm.location.trim();
+			if (jobForm.location_type !== "remote" && !locTrim) {
+				throw new Error(
+					"Location is required for onsite and hybrid roles."
+				);
+			}
+
 			const skillsArray = jobForm.skills
 				? jobForm.skills
 						.split(",")
@@ -452,7 +701,7 @@ const RecruiterHome = () => {
 					employment_type: jobForm.employment_type,
 					experience_level: jobForm.experience_level,
 					location_type: jobForm.location_type,
-					location: jobForm.location.trim(),
+					location: locTrim,
 					deadline: deadlineDate.toISOString(),
 					sponsorship_available: jobForm.sponsorship_available === true,
 					salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
@@ -491,6 +740,16 @@ const RecruiterHome = () => {
 
 			const createdJob = data.createJob;
 			setJobs((prev) => [createdJob, ...(prev || [])]);
+			const draftOwnerId = getJobDraftOwnerId(user, recruiter);
+			if (draftOwnerId) {
+				try {
+					localStorage.removeItem(jobDraftStorageKey(draftOwnerId));
+				} catch {
+					/* ignore */
+				}
+			}
+			setJobDraftRestored(false);
+			setJobForm({ ...EMPTY_JOB_FORM });
 			setShowJobModal(false);
 		} catch (err) {
 			console.error("Error creating job:", err);
@@ -1034,6 +1293,23 @@ const RecruiterHome = () => {
 										{jobError}
 									</div>
 								)}
+								<div
+									style={{
+										fontSize: "0.85rem",
+										color: "var(--text-secondary)",
+										marginBottom: "1rem",
+										lineHeight: 1.5,
+									}}
+								>
+									{jobDraftRestored ? (
+										<span style={{ color: "var(--accent-cyan)" }}>
+											We restored your last unfinished posting from this browser.
+										</span>
+									) : null}
+									{jobDraftRestored ? " " : null}
+									Drafts are kept for 5 minutes after your last change on this device;
+									they are removed when you publish the job.
+								</div>
 
 								<form onSubmit={handleCreateJob}>
 									<div className="form-section">
@@ -1188,13 +1464,20 @@ const RecruiterHome = () => {
 											</div>
 											<div className="form-group">
 												<label htmlFor="location">
-													Location *
+													Location{" "}
+													{jobForm.location_type === "remote"
+														? "(optional if remote)"
+														: "*"}
 												</label>
 												<input
 													type="text"
 													id="location"
 													className="input-field"
-													placeholder="e.g. Bengaluru, India or Remote"
+													placeholder={
+														jobForm.location_type === "remote"
+															? "e.g. US time zones only (optional)"
+															: "e.g. Bengaluru, India"
+													}
 													value={jobForm.location}
 													onChange={(e) =>
 														setJobForm({
@@ -1203,7 +1486,9 @@ const RecruiterHome = () => {
 																e.target.value,
 														})
 													}
-													required
+													required={
+														jobForm.location_type !== "remote"
+													}
 												/>
 											</div>
 										</div>
@@ -1418,6 +1703,15 @@ const RecruiterHome = () => {
 									</div>
 
 									<div className="modal-actions">
+										<button
+											type="button"
+											className="btn btn-outline"
+											onClick={handleDiscardJobDraft}
+											disabled={jobSaving}
+											title="Remove saved draft and reset the form"
+										>
+											Clear draft
+										</button>
 										<button
 											type="button"
 											className="btn btn-outline"

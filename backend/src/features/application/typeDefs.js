@@ -33,6 +33,8 @@ const applicationTypeDefs = gql`
   type Query {
     myApplications(limit: Int, offset: Int): [Application!]!
     applicationsForJob(job_id: ID!, limit: Int, offset: Int): [Application!]!
+    """Applications across all of the recruiter's jobs, newest first."""
+    myRecruiterApplicationsFeed(limit: Int, offset: Int): [Application!]!
     applicationCountForJob(job_id: ID!): Int!
     myApplicationCount: Int!
     hasApplied(job_id: ID!): Boolean!
